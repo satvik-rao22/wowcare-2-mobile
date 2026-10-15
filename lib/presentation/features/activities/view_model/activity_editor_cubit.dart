@@ -485,8 +485,7 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
       return _staffAtTimeValidationPersonas.contains(activeRole);
     }
 
-    final rolesRaw = (await _storage.getString(StorageKeys.roles) ?? '')
-        .trim();
+    final rolesRaw = (await _storage.getString(StorageKeys.roles) ?? '').trim();
     if (rolesRaw.isEmpty) return false;
     try {
       final decoded = jsonDecode(rolesRaw);
@@ -846,7 +845,9 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
             .loadCachedStaffPage(school, status: 'ACTIVE');
         if (cached != null && cached.items.isNotEmpty) return cached.items;
       } catch (e) {
-        AppLogger.d('loadActiveStaffDirectory: cached-page read failed, falling back to network: $e');
+        AppLogger.d(
+          'loadActiveStaffDirectory: cached-page read failed, falling back to network: $e',
+        );
       }
     }
 

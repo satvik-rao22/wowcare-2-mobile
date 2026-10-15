@@ -226,9 +226,7 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
             child: SafeArea(
               bottom: false,
               child: Container(
-                decoration: const BoxDecoration(
-                  color: AppPalette.mediaScrim,
-                ),
+                decoration: const BoxDecoration(color: AppPalette.mediaScrim),
                 padding: const EdgeInsets.only(bottom: 20),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

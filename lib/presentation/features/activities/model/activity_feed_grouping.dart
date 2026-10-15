@@ -183,6 +183,7 @@ ActivityItem mergeTwoActivityItemsForFeed(ActivityItem a, ActivityItem b) {
     approvalStatus: a.approvalStatus ?? b.approvalStatus,
   );
 }
+
 List<ActivityItem> mergeAdjacentMultiStudentFeedItems(
   List<ActivityItem> items,
 ) {

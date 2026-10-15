@@ -273,6 +273,9 @@ class _MedicationActivityViewState extends State<_MedicationActivityView> {
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         child: ActivityEditStudentScopeCheckboxes(
                           studentNames: selectedStudents,
+                          studentCodes: studentCodesOf(
+                            state.selectedStudentsData,
+                          ),
                           checkedIndices: state.scopedEditStudentIndices,
                           onChanged: cubit.setScopedEditStudentIndices,
                         ),

@@ -28,6 +28,12 @@ List<Map<String, dynamic>> studentMapsForScopedActivityUpdate({
   return out;
 }
 
+/// The `studentCode` of each student map, in order ('' when a map has none),
+/// for [ActivityEditStudentScopeCheckboxes.studentCodes].
+List<String> studentCodesOf(List<Map<String, dynamic>> studentMaps) => [
+  for (final m in studentMaps) (m['studentCode'] ?? '').toString().trim(),
+];
+
 /// When [studentNames.length] > 1 in edit mode: optional checkboxes to limit save
 /// to specific students. **All unchecked** = apply changes to **every** student
 /// (each underlying activity row). **Any checked** = only those rows are updated.
@@ -35,11 +41,16 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
   const ActivityEditStudentScopeCheckboxes({
     super.key,
     required this.studentNames,
+    this.studentCodes = const [],
     required this.checkedIndices,
     required this.onChanged,
   });
 
   final List<String> studentNames;
+
+  /// Student codes in the same order as [studentNames], so each avatar shows
+  /// the child's photo. Missing entries show initials.
+  final List<String> studentCodes;
   final Set<int> checkedIndices;
   final ValueChanged<Set<int>> onChanged;
 
@@ -141,7 +152,13 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
                             onChanged: (v) => _toggleIndex(i, v ?? false),
                           ),
                           const SizedBox(width: 8),
-                          ProfileAvatar(name: n, size: 28),
+                          ProfileAvatar(
+                            name: n,
+                            studentCode: i < studentCodes.length
+                                ? studentCodes[i]
+                                : null,
+                            size: 28,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(

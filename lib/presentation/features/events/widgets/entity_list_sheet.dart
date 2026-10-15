@@ -7,9 +7,24 @@ import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// One row of [showEntityListSheet].
 class EntityListItem {
-  const EntityListItem({required this.name, this.subtitle = '', this.rsvp});
+  const EntityListItem({
+    required this.name,
+    this.subtitle = '',
+    this.rsvp,
+    this.classroomCode,
+    this.studentCode,
+    this.staffCode,
+    this.userCode,
+  });
 
   final String name;
+
+  /// The codes [ProfileAvatar] finds the photo (or classroom logo) with;
+  /// set the one that matches this row.
+  final String? classroomCode;
+  final String? studentCode;
+  final String? staffCode;
+  final String? userCode;
 
   /// Secondary line — e.g. the child's name on a parent row.
   final String subtitle;
@@ -119,7 +134,14 @@ Future<void> showEntityListSheet(
                           final item = visible[index];
                           return ListTile(
                             dense: true,
-                            leading: ProfileAvatar(name: item.name, size: 32),
+                            leading: ProfileAvatar(
+                              name: item.name,
+                              classroomCode: item.classroomCode,
+                              studentCode: item.studentCode,
+                              staffCode: item.staffCode,
+                              userCode: item.userCode,
+                              size: 32,
+                            ),
                             title: Text(
                               item.name,
                               style: const TextStyle(fontSize: 13.5),

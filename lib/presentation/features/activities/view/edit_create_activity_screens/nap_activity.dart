@@ -1153,6 +1153,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   child: ActivityEditStudentScopeCheckboxes(
                     studentNames: _selectedStudents,
+                    studentCodes: studentCodesOf(_selectedStudentsData),
                     checkedIndices: _scopedEditStudentIndices,
                     onChanged: (next) => setState(() {
                       _scopedEditStudentIndices

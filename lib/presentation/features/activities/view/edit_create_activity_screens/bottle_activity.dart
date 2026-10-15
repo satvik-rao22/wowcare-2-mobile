@@ -303,6 +303,9 @@ class _BottleActivityViewState extends State<_BottleActivityView> {
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         child: ActivityEditStudentScopeCheckboxes(
                           studentNames: selectedStudents,
+                          studentCodes: studentCodesOf(
+                            state.selectedStudentsData,
+                          ),
                           checkedIndices: state.scopedEditStudentIndices,
                           onChanged: cubit.setScopedEditStudentIndices,
                         ),

@@ -544,9 +544,7 @@ ActivityItem activityItemFromFeedRow(
         : null,
     napEndTime: name == 'Nap End' ? (napEndTime ?? napTimeParam) : null,
     whatHappened:
-        (name == 'Incident' ||
-                name == 'Notes' ||
-                name == 'Observation') &&
+        (name == 'Incident' || name == 'Notes' || name == 'Observation') &&
             effectiveDescription.isNotEmpty
         ? effectiveDescription
         : null,

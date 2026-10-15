@@ -247,7 +247,8 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     final refs = activity.studentActivityRefs;
     if (refs == null) return false;
     return refs.any(
-      (r) => (r['activityCode'] ?? '').trim().toUpperCase() ==
+      (r) =>
+          (r['activityCode'] ?? '').trim().toUpperCase() ==
           target.toUpperCase(),
     );
   }
@@ -1494,7 +1495,9 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
           });
         }
       } catch (e) {
-        AppLogger.d('student-classroom cache read failed for $classroomName: $e');
+        AppLogger.d(
+          'student-classroom cache read failed for $classroomName: $e',
+        );
       }
     }
 
@@ -2913,8 +2916,8 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
                                                           vertical: 2,
                                                         ),
                                                     decoration: BoxDecoration(
-                                                      color:
-                                                          AppPalette.statusErrorStrong,
+                                                      color: AppPalette
+                                                          .statusErrorStrong,
                                                       borderRadius:
                                                           BorderRadius.circular(
                                                             10,
@@ -3269,7 +3272,8 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
                                                                           )) {
                                                                         return AppArtwork(
                                                                           iconPath,
-                                                                          fit: BoxFit.contain,
+                                                                          fit: BoxFit
+                                                                              .contain,
                                                                         );
                                                                       }
                                                                       return Image.asset(
@@ -3496,7 +3500,8 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
                                                                           activity,
                                                                           isAdminPersona:
                                                                               _isAdminPersona,
-                                                                          viewerStaffCode: _viewerStaffCode,
+                                                                          viewerStaffCode:
+                                                                              _viewerStaffCode,
                                                                         ))
                                                                       PopupMenuItem<
                                                                         String
@@ -3785,7 +3790,8 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
                                                         vertical: 2,
                                                       ),
                                                   decoration: BoxDecoration(
-                                                    color: AppPalette.statusErrorStrong,
+                                                    color: AppPalette
+                                                        .statusErrorStrong,
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                           10,
@@ -4898,7 +4904,6 @@ String? _formatBottleOzConsumedLine(String? raw) {
 /// Public for bottle detail view; same numeric formatting as the feed (`6 OZ`).
 String? formatBottleAmountForDisplay(String? raw) =>
     _formatBottleOzCompact(raw);
-
 
 String? activityApprovalStatusBadgeLabel(String? rawStatus) {
   final raw = (rawStatus ?? '').trim().toUpperCase();

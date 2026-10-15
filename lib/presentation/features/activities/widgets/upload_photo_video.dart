@@ -96,6 +96,7 @@ class _MediaUploaderState extends State<MediaUploader>
 
   late int maxPhotos;
   late int photoMaxSizeMB;
+
   /// Caps the camera's own recording length. Sourced from
   /// [VideoUploadLimits] so the recorder and the validator cannot drift apart —
   /// the size cap now lives there too and is enforced by the validator, not
@@ -905,7 +906,11 @@ class _MediaUploaderState extends State<MediaUploader>
       classified.code,
     );
     if (classified.shouldReport) {
-      MediaUploadTrace.failure(MediaUploadStage.pickerFailed, error, stackTrace);
+      MediaUploadTrace.failure(
+        MediaUploadStage.pickerFailed,
+        error,
+        stackTrace,
+      );
     }
     if (classified.message.isNotEmpty) _showWarning(classified.message);
   }

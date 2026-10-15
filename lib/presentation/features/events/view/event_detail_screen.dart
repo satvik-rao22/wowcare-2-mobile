@@ -45,8 +45,10 @@ class EventDetailScreen extends StatelessWidget {
       showCustomNavigationBar: false,
       body: BlocBuilder<EventsCubit, EventsState>(
         builder: (context, state) {
-          final event =
-              state.eventByOccurrence(occurrenceCode, eventCode: eventCode);
+          final event = state.eventByOccurrence(
+            occurrenceCode,
+            eventCode: eventCode,
+          );
           if (event == null) {
             // A notification tap opens this screen on a cold cubit, so the
             // board is briefly empty before the (silent) load returns — that
@@ -75,7 +77,8 @@ class EventDetailScreen extends StatelessWidget {
           // RSVP (server rule; students respond implicitly, never manually),
           // and only while the occurrence hasn't passed and `EVENT_RSVP`
           // permits responding.
-          final canRsvp = state.isParticipant(event) &&
+          final canRsvp =
+              state.isParticipant(event) &&
               !event.isPast &&
               EventAccess.canRsvp(
                 roles: roles,
@@ -245,6 +248,7 @@ class EventDetailScreen extends StatelessWidget {
             _attendeeGroupTile(
               context,
               label: 'Classrooms',
+              kind: _AttendeeKind.classroom,
               icon: EventUiUtils.typeIcon(EventType.classroom),
               color: EventUiUtils.typeColor(EventType.classroom),
               attendees: classrooms,
@@ -254,6 +258,7 @@ class EventDetailScreen extends StatelessWidget {
             _attendeeGroupTile(
               context,
               label: 'Students',
+              kind: _AttendeeKind.student,
               icon: EventUiUtils.typeIcon(EventType.student),
               color: EventUiUtils.typeColor(EventType.student),
               attendees: students,
@@ -263,6 +268,7 @@ class EventDetailScreen extends StatelessWidget {
             _attendeeGroupTile(
               context,
               label: 'Staff',
+              kind: _AttendeeKind.staff,
               icon: EventUiUtils.typeIcon(EventType.staff),
               color: EventUiUtils.typeColor(EventType.staff),
               attendees: staff,
@@ -272,6 +278,7 @@ class EventDetailScreen extends StatelessWidget {
             _attendeeGroupTile(
               context,
               label: 'Parents',
+              kind: _AttendeeKind.parent,
               icon: Icons.family_restroom_outlined,
               color: EventUiUtils.typeColor(EventType.individual),
               attendees: guardians,
@@ -293,6 +300,7 @@ class EventDetailScreen extends StatelessWidget {
     required IconData icon,
     required Color color,
     required List<EventAttendee> attendees,
+    required _AttendeeKind kind,
     required Map<String, EventRsvp> rsvpByCode,
     Map<String, String> childNameByCode = const {},
     String? countLabel,
@@ -311,6 +319,7 @@ class EventDetailScreen extends StatelessWidget {
             color: color,
             icon: icon,
             attendees: attendees,
+            kind: kind,
             rsvpByCode: rsvpByCode,
             childNameByCode: childNameByCode,
             emptyHint: emptyHint,
@@ -359,6 +368,7 @@ class EventDetailScreen extends StatelessWidget {
     required IconData icon,
     required Color color,
     required List<EventAttendee> attendees,
+    required _AttendeeKind kind,
     required Map<String, EventRsvp> rsvpByCode,
     Map<String, String> childNameByCode = const {},
     String? emptyHint,
@@ -373,6 +383,14 @@ class EventDetailScreen extends StatelessWidget {
         for (final attendee in attendees)
           EntityListItem(
             name: attendee.name.isNotEmpty ? attendee.name : attendee.code,
+            classroomCode: kind == _AttendeeKind.classroom
+                ? attendee.code
+                : null,
+            studentCode: kind == _AttendeeKind.student ? attendee.code : null,
+            staffCode: kind == _AttendeeKind.staff ? attendee.code : null,
+            // A parent's account code finds a photo only when they're staff
+            // too; otherwise the initials stay.
+            userCode: kind == _AttendeeKind.parent ? attendee.code : null,
             // Parent rows carry the linked child's code — show the child.
             subtitle: childNameByCode[attendee.linkedCode] ?? '',
             rsvp: rsvpByCode[attendee.code]?.status,
@@ -587,8 +605,9 @@ class EventDetailScreen extends StatelessWidget {
     if (scope == OccurrenceScope.thisAndFuture) {
       final confirmed = await _confirmFromHere(context, event);
       if (confirmed != true || !context.mounted) return;
-      final (ok, message) =
-          await context.read<EventsCubit>().deleteFromOccurrence(event);
+      final (ok, message) = await context
+          .read<EventsCubit>()
+          .deleteFromOccurrence(event);
       if (!context.mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
@@ -696,3 +715,7 @@ class EventDetailScreen extends StatelessWidget {
     }
   }
 }
+
+/// Which invited group an attendee belongs to — decides which code their
+/// avatar finds the photo (or classroom logo) with.
+enum _AttendeeKind { classroom, student, staff, parent }

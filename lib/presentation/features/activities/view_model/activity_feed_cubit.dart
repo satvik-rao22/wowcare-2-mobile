@@ -1426,7 +1426,9 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
       final s = query.dateStr.trim();
       if (s.isNotEmpty) return DateTime.parse(s);
     } catch (e) {
-      AppLogger.d('_dayForQuery: unparsable dateStr "${query.dateStr}", defaulting to now: $e');
+      AppLogger.d(
+        '_dayForQuery: unparsable dateStr "${query.dateStr}", defaulting to now: $e',
+      );
     }
     return AppTime.now();
   }

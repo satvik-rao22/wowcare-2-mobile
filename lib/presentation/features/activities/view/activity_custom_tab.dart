@@ -2334,7 +2334,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                 }
               }
             } catch (e) {
-              AppLogger.d('student-classroom cache read failed for $classroomNameKey: $e');
+              AppLogger.d(
+                'student-classroom cache read failed for $classroomNameKey: $e',
+              );
             }
           }
 
@@ -2675,7 +2677,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                               vertical: 2,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: AppPalette.statusErrorStrong,
+                                              color:
+                                                  AppPalette.statusErrorStrong,
                                               borderRadius:
                                                   BorderRadius.circular(10),
                                             ),
@@ -2975,7 +2978,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                                                       )) {
                                                                     return AppArtwork(
                                                                       iconPath,
-                                                                      fit: BoxFit.contain,
+                                                                      fit: BoxFit
+                                                                          .contain,
                                                                     );
                                                                   }
                                                                   return Image.asset(
@@ -3239,7 +3243,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                                                       activity,
                                                                       isAdminPersona:
                                                                           _isAdminPersona,
-                                                                      viewerStaffCode: _viewerStaffCode,
+                                                                      viewerStaffCode:
+                                                                          _viewerStaffCode,
                                                                     ))
                                                                   PopupMenuItem<
                                                                     String

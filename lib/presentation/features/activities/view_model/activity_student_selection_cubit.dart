@@ -250,7 +250,9 @@ class ActivityStudentSelectionCubit
           }
         }
       } catch (e) {
-        AppLogger.d('_loadClassrooms: cache read failed, falling back to network: $e');
+        AppLogger.d(
+          '_loadClassrooms: cache read failed, falling back to network: $e',
+        );
       }
     }
 

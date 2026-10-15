@@ -311,7 +311,9 @@ class ActivityFeedScopeCubit extends Cubit<ActivityFeedScopeState>
           final resolved = full.isNotEmpty ? full : composed;
           if (resolved.isNotEmpty) result[code] = resolved;
         } catch (e) {
-          AppLogger.d('resolveStaffDisplayNames: profile lookup failed for $code: $e');
+          AppLogger.d(
+            'resolveStaffDisplayNames: profile lookup failed for $code: $e',
+          );
         }
       }),
     );
