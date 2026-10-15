@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 
 /// Why an asset could not be shown. Kept distinct from "not resolved yet" so the
 /// UI can say something true instead of spinning forever.
@@ -119,7 +120,7 @@ class AttachmentAsset extends Equatable {
 
   /// Empty when the payload omitted the size, so callers can hide the line.
   String get displaySize =>
-      sizeBytes <= 0 ? '' : FilePickerUtils.formatBytes(sizeBytes);
+      sizeBytes <= 0 ? '' : FileUtils.formatBytes(sizeBytes);
 
   /// `JPG · 78 KB`, or just one half when the other is unknown.
   String get displaySubtitle {

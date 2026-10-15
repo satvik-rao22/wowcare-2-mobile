@@ -854,14 +854,6 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
           );
         },
         onViewParticipants: _showParticipantsDialog,
-        onAttachmentError: (message) {
-          if (!mounted) return;
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: message,
-            isError: true,
-          );
-        },
       ),
     );
   }

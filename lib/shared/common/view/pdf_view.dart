@@ -1,14 +1,12 @@
-﻿import 'dart:typed_data';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 // import 'package:flutter_windowmanager/flutter_windowmanager.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
 
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 
 import '../widgets/custom_curved_appbar.dart';
@@ -31,7 +29,6 @@ class PdfViewerPage extends StatefulWidget {
 
 class _PdfViewerPageState extends State<PdfViewerPage> {
   ScrollController scrollController = ScrollController();
-  final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
 
   @override
   void initState() {
@@ -58,68 +55,17 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
   //   await FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
   // }
 
-  Future<bool> _requestPermissions() async {
-    AppLogger.d("Requesting permissions...");
-
-    if (Platform.isAndroid) {
-      final androidInfo = await deviceInfo.androidInfo;
-      final sdkInt = androidInfo.version.sdkInt;
-      AppLogger.d("Android SDK Version: $sdkInt");
-
-      if (sdkInt >= 33) {
-        // For Android 13+, only request all media permissions
-        final status = await Permission.manageExternalStorage.request();
-        AppLogger.d("Manage external storage permission status: $status");
-        return status.isGranted;
-      } else {
-        // For Android 12 and below
-        final status = await Permission.storage.request();
-        AppLogger.d("Storage permission status: $status");
-        return status.isGranted;
-      }
-    }
-    return true; // For iOS
-  }
-
+  // No runtime permission is needed — or obtainable. The manifest removes
+  // READ/WRITE_EXTERNAL_STORAGE and never declares MANAGE_EXTERNAL_STORAGE
+  // (a Play-restricted permission), so the old storage request always came
+  // back denied and sent users to Settings for a toggle that isn't there.
+  // Android 11+ lets an app create its own files in Download/ without any
+  // permission; on older versions the write fails and the fallback below
+  // saves to the app's folder instead.
   Future<void> _downloadPdf(Uint8List fileBytes, BuildContext context) async {
     AppLogger.d("Starting PDF download process...");
 
     try {
-      final hasPermission = await _requestPermissions();
-      AppLogger.d("Has permission: $hasPermission");
-
-      if (!hasPermission) {
-        AppLogger.d("Permission not granted");
-        final bool shouldOpenSettings =
-            await showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => AlertDialog(
-                title: const Text('Storage Permission Required'),
-                content: const Text(
-                  'To save PDF files, this app needs storage permission.\n\n'
-                  'Please grant "All files access" permission in the next screen.',
-                ),
-                actions: [
-                  TextButton(
-                    child: const Text('Cancel'),
-                    onPressed: () => Navigator.of(context).pop(false),
-                  ),
-                  TextButton(
-                    child: const Text('Open Settings'),
-                    onPressed: () => Navigator.of(context).pop(true),
-                  ),
-                ],
-              ),
-            ) ??
-            false;
-
-        if (shouldOpenSettings) {
-          await openAppSettings();
-        }
-        return;
-      }
-
       String? filePath;
       if (Platform.isAndroid) {
         try {
@@ -142,7 +88,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
         } catch (e) {
           AppLogger.w("Error saving to downloads: $e");
           // Fallback to app documents directory
-          final appDir = await getApplicationDocumentsDirectory();
+          final appDir = await FileUtils.documentsDirectory();
           final fileName =
               'payslip_${AppTime.nowUtc().millisecondsSinceEpoch}.pdf';
           filePath = '${appDir.path}/$fileName';
@@ -157,8 +103,9 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
         }
       } else {
         // iOS implementation
-        final directory = await getApplicationDocumentsDirectory();
-        final fileName = 'payslip_${AppTime.nowUtc().millisecondsSinceEpoch}.pdf';
+        final directory = await FileUtils.documentsDirectory();
+        final fileName =
+            'payslip_${AppTime.nowUtc().millisecondsSinceEpoch}.pdf';
         filePath = '${directory.path}/$fileName';
 
         final file = File(filePath);
@@ -168,7 +115,10 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
       }
     } catch (e) {
       AppLogger.w("Error in download process: $e");
-      CoreUtils.showSnackBar(context, 'Could not save the file. Please try again.');
+      CoreUtils.showSnackBar(
+        context,
+        'Could not save the file. Please try again.',
+      );
     }
   }
 

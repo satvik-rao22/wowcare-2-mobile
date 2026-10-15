@@ -2,8 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:mime/mime.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
 import 'package:wowcare/domain/features/activity/repositories/activity_media_upload_repository.dart';
@@ -130,9 +129,7 @@ Future<List<ActivityAttachment>> uploadActivityPhotoAttachments({
         // content type left non-JPEG uploads stuck at PROCESSING, never
         // reaching READY, because the decoder parsed them as JPEG. Falls back
         // to the extension when the bytes can't be sniffed.
-        final contentType =
-            lookupMimeType(photo.path) ??
-            FilePickerUtils.getMimeType(fileName.split('.').last);
+        final contentType = await FileUtils.mimeTypeOfFile(photo.path);
         items.add(
           ActivityUploadItem(
             file: photo,

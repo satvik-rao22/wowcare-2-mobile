@@ -12,7 +12,6 @@ import 'package:wowcare/core/utils/attendance_events.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:wowcare/presentation/features/kiosk/view_model/kiosk_dashboard_cubit.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
@@ -308,13 +307,11 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       withinGeofence = geofenceState?.isWithinGeofence ?? false;
     }
 
-    // GPS is optional for kiosk (fixed location device)
-    Position? position;
-    if (!widget.isKiosk) {
-      position = await const AttendanceLocationFix().take(
-        caller: 'StaffSignInForm',
-      );
-    }
+    // Recorded on the attendance record for audit; it doesn't gate it.
+    // A kiosk is a fixed device, so it sends no GPS.
+    final location = widget.isKiosk
+        ? null
+        : await const AttendanceLocationFix().take();
 
     final bool isQrSignIn = widget.qrToken.isNotEmpty;
     // The dashboard's personal sign-in card (forceSelf) is a GPS sign-in for
@@ -342,8 +339,8 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     // Resolve the values the two shapes share into locals (keeping every guard
     // above), then assemble a typed StaffSignInRequest whose toPayload()
     // reproduces the exact payload map this form used to build for each shape.
-    final double latitude = position?.latitude ?? 0;
-    final double longitude = position?.longitude ?? 0;
+    final double latitude = location?.latitude ?? 0;
+    final double longitude = location?.longitude ?? 0;
     final String occurredAtIso = occurredAt.toUtc().toIso8601String();
     final String notExpectedCommentRaw = _gateCubit.state.notExpectedComment;
     final String? notExpectedComment = notExpectedCommentRaw.trim().isNotEmpty

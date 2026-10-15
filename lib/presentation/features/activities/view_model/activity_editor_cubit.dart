@@ -247,8 +247,10 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
   Future<ActivityTypeDetails> getActivityTypeDetails({required String code}) =>
       _getActivityTypeDetailsUseCase(code: code);
 
-  Future<ActivityDetail> getActivity({required String code}) =>
-      _getActivityUseCase(code: code);
+  Future<ActivityDetail> getActivity({
+    required String code,
+    bool asGuardian = false,
+  }) => _getActivityUseCase(code: code, asGuardian: asGuardian);
 
   Future<String> createActivity({
     required String activityTypeCode,

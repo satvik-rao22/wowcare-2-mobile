@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:wowcare/core/observability/app_events.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 
 import 'package:flutter/material.dart';
@@ -33,7 +34,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/cache_manager.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
@@ -43,7 +44,8 @@ import 'package:wowcare/domain/features/attendance/usecases/get_staff_attendance
 import 'package:wowcare/domain/features/classroom/usecases/get_student_classroom_enrolled_count_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/create_classroom_logo_upload_session_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/finalize_classroom_logo_usecase.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
+import 'package:wowcare/shared/services/asset/asset_models.dart';
 
 class ClassroomInfoScreen extends StatelessWidget {
   const ClassroomInfoScreen({
@@ -527,7 +529,6 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
       // (jpeg/jpg/png/webp/heic/heif/avif/gif/bmp/tiff), not gallery-only.
       final picked = await FilePickerUtils.pickFile(
         allowedExtensions: FilePickerUtils.allowedImageExtensions,
-        context: mounted ? context : null,
       );
       final pickedPath = picked?.path;
       if (pickedPath == null || pickedPath.isEmpty) return;
@@ -542,7 +543,7 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
       });
       upload = Stopwatch()..start();
 
-      final uploadService = serviceLocator<ImageUploadService>();
+      final uploadService = serviceLocator<AssetService>();
 
       final session = await _createClassroomLogoUploadSessionUseCase(
         classroomCode: classroomCode,
@@ -557,62 +558,30 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
 
       final lowerPath = file.path.toLowerCase();
       final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final contentType = lowerPath.endsWith('.png')
-          ? 'image/png'
-          : 'image/jpeg';
+      final contentType = await FileUtils.imageMimeTypeOfFile(file.path);
 
-      final presign = await uploadService.createAssetPresign(
-        sessionCode: sessionCode,
-        documentApiBasePath: documentApiBasePath.isEmpty
-            ? '/api/v1'
-            : documentApiBasePath,
+      final asset = await uploadService.uploadToSession(
+        session: UploadSessionResult(
+          sessionCode: sessionCode,
+          documentApiBasePath: documentApiBasePath,
+        ),
+        file: file,
+        owner: AssetOwner.classroom(classroomCode),
         fileName: fileName.isNotEmpty
             ? fileName
             : 'classroom-logo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
         contentType: contentType,
-        contentLengthBytes: await file.length(),
-        mediaType: 'IMAGE',
-        ownerType: 'CLASSROOM',
-        ownerCode: classroomCode,
-      );
-
-      if (mounted) setState(() => _logoUploadPercent = 25);
-
-      await uploadService.uploadFileToPresignedUrl(
-        file: file,
-        presignedPutUrl: presign.presignedPutUrl,
-        requiredHeaders: presign.requiredHeaders,
-        fallbackContentType: contentType,
-        onSendProgress: (int sent, int total) {
-          if (!mounted || total <= 0) return;
-          final uploadPhasePercent = (sent / total).clamp(0.0, 1.0);
-          setState(() {
-            _logoUploadPercent = 25 + (uploadPhasePercent * 55);
-          });
+        // The PUT fills 25–80 % of the logo's progress ring.
+        onUploadProgress: (percent) {
+          if (!mounted) return;
+          setState(() => _logoUploadPercent = 25 + percent * 0.55);
         },
-      );
-      if (mounted) setState(() => _logoUploadPercent = 84);
-
-      await uploadService
-          .completeAssetUpload(
-            sessionCode: sessionCode,
-            assetCode: presign.assetCode,
-            documentApiBasePath: documentApiBasePath.isEmpty
-                ? '/api/v1'
-                : documentApiBasePath,
-          )
-          .timeout(const Duration(seconds: 30));
-      if (mounted) setState(() => _logoUploadPercent = 90);
-
-      await uploadService.waitUntilAssetsReady(
-        sessionCode: sessionCode,
-        expectedAssetCodes: <String>[presign.assetCode],
       );
       if (mounted) setState(() => _logoUploadPercent = 100);
 
       await _finalizeClassroomLogoUseCase(
         classroomCode: classroomCode,
-        assetCode: presign.assetCode.trim(),
+        assetCode: asset.assetCode.trim(),
       )
       // A non-responding finalize must not lock the overlay at 100% forever.
       .timeout(const Duration(seconds: 30));
@@ -627,13 +596,13 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
       String logoUrl = '';
       try {
         logoUrl = await uploadService
-            .getMediaAssetUrlByCode(assetCode: presign.assetCode.trim())
+            .getMediaAssetUrlByCode(assetCode: asset.assetCode.trim())
             .timeout(const Duration(seconds: 20));
       } catch (e) {
         AppLogger.d('[ClassroomInfo] Post-upload URL resolve failed: $e');
       }
       AppLogger.d(
-        '[ClassroomInfo] logo upload complete — asset=${presign.assetCode} '
+        '[ClassroomInfo] logo upload complete — asset=${asset.assetCode} '
         'url=${logoUrl.isEmpty ? '(empty)' : 'resolved'}',
       );
       // Seed the freshly-resolved URL into the cache and wake every mounted
@@ -650,7 +619,7 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
         // Drives the avatar via mediaAssetCode (same as profile photos) so the
         // new logo shows instantly; _classroomLogoUrl is kept only for the
         // edit/camera icon state.
-        _classroomLogoAssetCode = presign.assetCode.trim();
+        _classroomLogoAssetCode = asset.assetCode.trim();
         _classroomLogoUrl = logoUrl;
         _isLogoLoading = false;
         _logoUploadPercent = 0;

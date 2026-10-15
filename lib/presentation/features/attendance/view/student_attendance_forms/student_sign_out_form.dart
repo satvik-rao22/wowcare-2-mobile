@@ -299,9 +299,8 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       withinGeofence = geofenceState?.isWithinGeofence ?? false;
     }
 
-    final position = await const AttendanceLocationFix().take(
-      caller: 'StudentSignOutForm',
-    );
+    // Recorded on the attendance record for audit; it doesn't gate it.
+    final location = await const AttendanceLocationFix().take();
 
     // Resolve persona-specific values (with the same guards as before), then
     // assemble a typed StudentSignOutRequest whose toPayload() reproduces the
@@ -365,8 +364,8 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       mode: mode,
       studentCodes: studentCodes,
       signOutMethod: signOutMethod,
-      latitude: position?.latitude ?? 0,
-      longitude: position?.longitude ?? 0,
+      latitude: location?.latitude ?? 0,
+      longitude: location?.longitude ?? 0,
       withinGeofence: withinGeofence,
       timeZone: schoolTimeZone,
       qrToken: (widget.isQrScan && widget.qrToken.isNotEmpty)

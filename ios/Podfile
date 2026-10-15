@@ -80,15 +80,25 @@ post_install do |installer|
     #     needed: GeofencingLocalDataSource now routes *all* iOS location
     #     permission checks and requests through Geolocator (see
     #     lib/data/features/geofencing/datasources/geofencing_local_datasource.dart);
-    #     on iOS permission_handler is only used for notifications and storage.
+    #     on iOS permission_handler is only used for camera and notifications.
     #     Leaving it unset keeps the Always selector out of the binary.
     #
     # Do NOT re-add either flag/key without a user-facing feature Apple accepts
     # as needing background location.
+    #
+    # PERMISSION_CAMERA=1 / PERMISSION_NOTIFICATIONS=1
+    #     permission_handler_apple compiles every permission out by default; a
+    #     permission without its flag reports "denied" on check and
+    #     "permanently denied" on request, with no dialog. These two back
+    #     AppPermission.camera / .notifications in lib/core/utils/permission_manager.dart.
+    #     Adding an AppPermission that uses permission_handler on iOS means
+    #     adding its flag here (and its Info.plist usage string).
     # ---------------------------------------------------------------------
     target.build_configurations.each do |config|
       config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
       config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'BYPASS_PERMISSION_LOCATION_ALWAYS=1'
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'PERMISSION_CAMERA=1'
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'PERMISSION_NOTIFICATIONS=1'
 
       # Xcode 27 rejects (error, not warning) any target below iOS 15.0. Many
       # pods still declare 9.0–13.0, so lift them to match the app's platform.

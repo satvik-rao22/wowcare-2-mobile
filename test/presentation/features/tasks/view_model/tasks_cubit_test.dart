@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
 import 'package:dio/dio.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
@@ -35,7 +35,7 @@ import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachments_u
 import 'package:wowcare/presentation/features/tasks/view_model/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_manager.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 /// In-memory [StorageService] so the cubit's identity/role reads never touch
 /// SharedPreferences or the network staff-code resolver (a non-empty staffCode
@@ -504,7 +504,7 @@ TasksCubit _buildCubit(
       UploadTaskAttachmentsUseCase(repo, uploadManager ?? _FakeUploadManager()),
       GetTaskAttachmentsUseCase(repo),
       DetachTaskAttachmentUseCase(repo),
-      ImageUploadService(ApiClient(baseUrl: 'http://localhost')),
+      AssetService(ApiClient(baseUrl: 'http://localhost')),
       GetAllStaffUseCase(_FakeStaffRepository(staff)),
       storage ?? _FakeStorage(activeSchoolRole: activeSchoolRole),
       UpdateTaskAssignmentUseCase(repo),

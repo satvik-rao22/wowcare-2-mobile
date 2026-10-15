@@ -1,3 +1,4 @@
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cookie_jar/cookie_jar.dart';
@@ -5,7 +6,6 @@ import 'package:dio/dio.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:get_it/get_it.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/features/notifications/datasources/fcm_registration_remote_data_source.dart';
 import '../../data/features/notifications/datasources/fcm_remote_data_source.dart';
@@ -466,6 +466,7 @@ import '../../domain/features/communication/usecases/get_conversations_for_class
 import '../../domain/features/communication/usecases/get_or_create_classroom_chat_usecase.dart';
 import '../../domain/features/communication/usecases/get_classroom_roster_present_user_codes_usecase.dart';
 import '../../domain/features/communication/usecases/toggle_private_mode_usecase.dart';
+import '../../domain/features/communication/usecases/mark_all_read_usecase.dart';
 import '../../domain/features/communication/usecases/mark_conversation_read_usecase.dart';
 import '../../domain/features/communication/usecases/get_unread_counts_per_conversation_usecase.dart';
 import '../../domain/features/communication/usecases/get_message_receipts_usecase.dart';
@@ -518,24 +519,19 @@ import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/view_model/communication_cubit.dart';
 import 'package:wowcare/data/features/communication/services/chat_attachment_uploader.dart';
 import '../../presentation/features/dashboard/view_model/student_newsletters_cubit.dart';
-import '../../shared/services/image_upload/image_upload_service.dart';
-import '../../shared/services/image_upload/profile_photo_uploader.dart';
-import 'package:wowcare/shared/services/image_upload/profile_photo_background_uploader.dart';
-import '../../shared/services/image_upload/staff_photo_background_upload_service.dart';
+import '../../shared/services/asset/asset_service.dart';
+import '../../shared/services/asset/profile_photo_uploader.dart';
+import 'package:wowcare/shared/services/asset/profile_photo_background_uploader.dart';
+import '../../shared/services/asset/staff_photo_background_upload_service.dart';
 import '../../domain/features/newsletter/repositories/student_newsletters_repository.dart';
 import '../../domain/features/newsletter/usecases/get_student_newsletters_usecase.dart';
 import '../../domain/features/student/usecases/get_student_profile_usecase.dart';
-import '../../data/features/geofencing/datasources/geofencing_local_datasource.dart';
 import '../../data/features/geofencing/repositories/geofencing_repository_impl.dart';
 import '../../domain/features/geofencing/repositories/geofencing_repository.dart';
-import '../../domain/features/geofencing/usecases/check_location_permission_usecase.dart';
-import '../../domain/features/geofencing/usecases/request_location_permission_usecase.dart';
 import '../../domain/features/geofencing/usecases/get_school_location_usecase.dart';
-import '../../domain/features/geofencing/usecases/watch_geofence_usecase.dart';
 import '../../presentation/features/geofencing/view_model/geofence_cubit.dart';
 import '../../shared/common/app/cubits/parent_child_cubit.dart';
 import '../../shared/services/geofence_notification_service.dart';
-import '../../data/services/file_download_service.dart';
 import 'package:wowcare/data/features/reports/repositories/file_download_repository_impl.dart';
 import 'package:wowcare/domain/features/reports/repositories/file_download_repository.dart';
 import 'package:wowcare/domain/features/reports/usecases/save_report_file_usecase.dart';
@@ -745,7 +741,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   // or constructs a Cookie header by hand. Stored under Application Support
   // (not Documents — this is app-internal state, not user-facing) so it
   // survives app restarts, not just hot reloads.
-  final cookieDir = await getApplicationSupportDirectory();
+  final cookieDir = await FileUtils.supportDirectory();
   final cookieJar = PersistCookieJar(
     storage: FileStorage('${cookieDir.path}/.cookies/'),
   );
@@ -764,17 +760,17 @@ Future<void> configureDependencies({String? baseUrl}) async {
       ],
     ),
   );
-  serviceLocator.registerLazySingleton<ImageUploadService>(
-    () => ImageUploadService(serviceLocator<ApiClient>()),
+  serviceLocator.registerLazySingleton<AssetService>(
+    () => AssetService(serviceLocator<ApiClient>()),
   );
   serviceLocator.registerFactory<StaffProfilePhotoUploadCubit>(
     () => StaffProfilePhotoUploadCubit(
-      imageUploadService: serviceLocator(),
+      assetService: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );
   serviceLocator.registerLazySingleton<ProfilePhotoUploader>(
-    () => ProfilePhotoUploader(serviceLocator<ImageUploadService>()),
+    () => ProfilePhotoUploader(serviceLocator<AssetService>()),
   );
 
   serviceLocator.registerLazySingleton<ProfilePhotoBackgroundUploader>(
@@ -925,7 +921,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<ActivityMediaUploadRepository>(
     () =>
-        ActivityMediaUploadRepositoryImpl(serviceLocator<ImageUploadService>()),
+        ActivityMediaUploadRepositoryImpl(serviceLocator<AssetService>()),
   );
   // Recovery of camera captures Android completed but could not deliver
   // (activity destroyed while the camera app was in the foreground). Singleton
@@ -1114,13 +1110,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
 
-  // File Download Service
-  serviceLocator.registerLazySingleton<FileDownloadService>(
-    () => FileDownloadService(),
-  );
-
   serviceLocator.registerLazySingleton<FileDownloadRepository>(
-    () => FileDownloadRepositoryImpl(serviceLocator<FileDownloadService>()),
+    () => const FileDownloadRepositoryImpl(),
   );
 
   serviceLocator.registerFactory<SaveReportFileUseCase>(
@@ -1204,7 +1195,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getUserDetailsUseCase: serviceLocator(),
       switchActiveSchoolPersonaUseCase: serviceLocator(),
       getGuardianProfileUseCase: serviceLocator(),
-      imageUploadService: serviceLocator(),
+      assetService: serviceLocator(),
       getActiveClassroomsUseCase: serviceLocator(),
       resolveLoggedInStaffCodeUseCase: serviceLocator(),
     ),
@@ -1968,7 +1959,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<SchoolCloudImageUploaderCubit>(
     () => SchoolCloudImageUploaderCubit(
       storageService: serviceLocator<StorageService>(),
-      imageUploadService: serviceLocator<ImageUploadService>(),
+      assetService: serviceLocator<AssetService>(),
     ),
   );
   serviceLocator.registerFactory<ActivityFeedScreenCubit>(
@@ -2212,6 +2203,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<MarkConversationReadUseCase>(
     () => MarkConversationReadUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<MarkAllReadUseCase>(
+    () => MarkAllReadUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetUnreadCountsPerConversationUseCase>(
     () => GetUnreadCountsPerConversationUseCase(serviceLocator()),
@@ -2499,7 +2493,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       .registerFactoryParam<StaffDocumentUploadCubit, StaffProfileCubit, void>(
         (staffProfileCubit, _) => StaffDocumentUploadCubit(
           storageService: serviceLocator(),
-          imageUploadService: serviceLocator(),
+          assetService: serviceLocator(),
           staffProfileCubit: staffProfileCubit,
         ),
       );
@@ -2514,7 +2508,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStaffDocumentsUseCase: serviceLocator(),
       deleteStaffDocumentUseCase: serviceLocator(),
       loadCachedStaffDocumentsUseCase: serviceLocator(),
-      imageUploadService: serviceLocator(),
+      assetService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StaffAttendanceActionTargetsCubit>(
@@ -2758,6 +2752,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentDocumentsUseCase: serviceLocator(),
       deleteStudentDocumentUseCase: serviceLocator(),
       repository: serviceLocator(),
+      assetService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentPhysicianCubit>(
@@ -2846,7 +2841,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StudentDocumentCubit(
       addStudentDocumentUseCase: serviceLocator(),
       updateStudentDocumentUseCase: serviceLocator(),
-      imageUploadService: serviceLocator(),
+      assetService: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );
@@ -3000,19 +2995,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<NewsletterAssetUrlCubit>(
     () => NewsletterAssetUrlCubit(
-      imageUploadService: serviceLocator<ImageUploadService>(),
+      assetService: serviceLocator<AssetService>(),
     ),
   );
 
   // Geofencing Feature
-  serviceLocator.registerLazySingleton<GeofencingLocalDataSource>(
-    () => GeofencingLocalDataSourceImpl(),
-  );
   serviceLocator.registerLazySingleton<GeofencingRepository>(
-    () => GeofencingRepositoryImpl(
-      localDataSource: serviceLocator(),
-      apiClient: serviceLocator(),
-    ),
+    () => GeofencingRepositoryImpl(apiClient: serviceLocator()),
   );
   serviceLocator.registerLazySingleton<GeofenceNotificationService>(
     () => GeofenceNotificationService(),
@@ -3128,26 +3117,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storage: serviceLocator(),
     ),
   );
-  serviceLocator.registerFactory<CheckLocationPermissionUseCase>(
-    () => CheckLocationPermissionUseCase(serviceLocator()),
-  );
-  serviceLocator.registerFactory<RequestLocationPermissionUseCase>(
-    () => RequestLocationPermissionUseCase(serviceLocator()),
-  );
   serviceLocator.registerFactory<GetSchoolLocationUseCase>(
     () => GetSchoolLocationUseCase(serviceLocator()),
-  );
-  serviceLocator.registerFactory<WatchGeofenceUseCase>(
-    () => WatchGeofenceUseCase(serviceLocator()),
   );
   // Singleton — one cubit for the entire app lifetime so GPS state survives
   // navigation. Never call close() on this from a dashboard widget.
   serviceLocator.registerLazySingleton<GeofenceCubit>(
     () => GeofenceCubit(
-      checkLocationPermissionUseCase: serviceLocator(),
-      requestLocationPermissionUseCase: serviceLocator(),
       getSchoolLocationUseCase: serviceLocator(),
-      watchGeofenceUseCase: serviceLocator(),
       notificationService: serviceLocator(),
     ),
   );
@@ -3438,13 +3415,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ViewInvoiceCubit(
       getStudentProfile: serviceLocator<GetStudentProfileUseCase>(),
       getInvoiceByCode: serviceLocator<GetInvoiceByCodeUseCase>(),
-      fileDownloadService: serviceLocator<FileDownloadService>(),
       createSchoolHeaderCubit: () => serviceLocator<BillingSchoolHeaderCubit>(),
     ),
   );
   serviceLocator.registerFactory<ViewReceiptCubit>(
     () => ViewReceiptCubit(
-      fileDownloadService: serviceLocator<FileDownloadService>(),
       createSchoolHeaderCubit: () => serviceLocator<BillingSchoolHeaderCubit>(),
     ),
   );
@@ -3474,7 +3449,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => AdminStatementsCubit(
       getStatements: serviceLocator<GetBillingStatementsUseCase>(),
       statementsRepository: serviceLocator<BillingStatementsRepository>(),
-      fileDownloadService: serviceLocator<FileDownloadService>(),
       storageService: serviceLocator<StorageService>(),
     ),
   );
@@ -3482,7 +3456,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ParentStatementsCubit(
       getStatements: serviceLocator<GetBillingStatementsUseCase>(),
       statementsRepository: serviceLocator<BillingStatementsRepository>(),
-      fileDownloadService: serviceLocator<FileDownloadService>(),
     ),
   );
   serviceLocator.registerFactory<TransactionsCubit>(
@@ -3634,7 +3607,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<AttachmentUploadManager>(
     () => AttachmentUploadManager(
-      serviceLocator<ImageUploadService>(),
+      serviceLocator<AssetService>(),
       serviceLocator<StorageService>(),
     ),
   );
@@ -3808,7 +3781,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator<UploadTaskAttachmentsUseCase>(),
       serviceLocator<GetTaskAttachmentsUseCase>(),
       serviceLocator<DetachTaskAttachmentUseCase>(),
-      serviceLocator<ImageUploadService>(),
+      serviceLocator<AssetService>(),
       serviceLocator<GetAllStaffUseCase>(),
       serviceLocator<StorageService>(),
       serviceLocator<UpdateTaskAssignmentUseCase>(),

@@ -118,6 +118,10 @@ abstract class ConversationEntityRemoteDataSource {
 
   Future<void> markConversationRead(String conversationCode);
 
+  /// Marks every conversation read for [userCode] under [role]
+  /// ('ADMIN' / 'STAFF' / 'GUARDIAN'). Returns `conversationsCleared`.
+  Future<int> markAllRead({required String userCode, required String role});
+
   Future<void> markConversationDelivered(String conversationCode);
 
   Future<Map<String, int>> getUnreadAggregates();
@@ -522,6 +526,25 @@ class ConversationEntityRemoteDataSourceImpl
       ApiPaths.messagingConversationMarkRead(conversationCode),
     );
     await apiClient.client.post(endpoint);
+  }
+
+  @override
+  Future<int> markAllRead({
+    required String userCode,
+    required String role,
+  }) async {
+    final endpoint = _url(ApiPaths.messagesMarkAllRead);
+    final response = await apiClient.client.post(
+      endpoint,
+      data: {'userCode': userCode, 'role': role},
+    );
+    // Contract returns the counts at the root; tolerate the usual
+    // `{success, data: {...}}` envelope too in case the gateway wraps it.
+    final body = response.data;
+    final payload = body is Map && body['data'] is Map ? body['data'] : body;
+    return payload is Map
+        ? (payload['conversationsCleared'] as num?)?.toInt() ?? 0
+        : 0;
   }
 
   @override

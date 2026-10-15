@@ -496,9 +496,6 @@ abstract final class AppStrings {
   static const String send = 'Send';
   static const String pleaseEnterMessage = 'Please enter your message';
   static const String createMessage = 'Create Message';
-  static const String fileTooLarge = 'File too large (max 10 MB)';
-  static const String someFilesSkipped =
-      'Some files were skipped (max 10 MB each)';
   static const String bulkMessageProcessing =
       'Bulk message is being processed in the background.';
   static const String newMessagesLabel = 'New Messages';
@@ -514,6 +511,14 @@ abstract final class AppStrings {
       'Unread message counts also include unread messages for Students / '
       'Staff made inactive. Apply filters accordingly to view them in '
       'messaging.';
+  static const String markAllRead = 'Mark all read';
+  static const String markAllReadConfirmTitle = 'Mark all as read?';
+  static const String markAllReadConfirmBody =
+      'This clears unread counts in every messaging group. Senders will '
+      'see your messages as read.';
+  static const String markAllReadSuccess = 'All messages marked as read';
+  static const String markAllReadFailed =
+      'Could not mark messages as read. Please try again.';
 
   // ── Attachment options sheet ────────────────────────────────────────────────
   static const String addAttachment = 'Add Attachment';
@@ -524,7 +529,6 @@ abstract final class AppStrings {
   static const String takePhotoSubtitle = 'Capture a photo with your camera';
   static const String documentOneFile = 'Document (one file)';
   static const String documentSubtitle = 'PDF, DOC, DOCX, XLS, XLSX • max 10 MB';
-  static const String doNotExceed10MB = 'Please do not exceed the 10 MB limit';
 
   static String filesPartiallyRejected(
     int total,

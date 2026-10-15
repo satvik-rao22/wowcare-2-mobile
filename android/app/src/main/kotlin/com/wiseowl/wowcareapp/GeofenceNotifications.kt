@@ -13,6 +13,12 @@ object GeofenceNotifications {
     private const val CHANNEL_ID = "geofence_channel"
     private const val CHANNEL_NAME = "School Sign-In Zone Alerts"
 
+    // Off: on entering the zone the app shows its own "You've entered the
+    // school zone" sheet with Sign-In, so this notification was a duplicate.
+    // The leave notification stays — nothing in the app replaces it.
+    // Set true to bring it back. Keep in sync with GeofencePlugin.swift.
+    private const val SHOW_ENTER_NOTIFICATION = false
+
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -26,6 +32,7 @@ object GeofenceNotifications {
     }
 
     fun show(context: Context, isInside: Boolean) {
+        if (isInside && !SHOW_ENTER_NOTIFICATION) return
         val (id, title, body) =
             if (isInside) {
                 Triple(

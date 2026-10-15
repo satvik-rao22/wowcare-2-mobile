@@ -1,6 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 /// Resolves newsletter media asset codes to displayable URLs.
 ///
@@ -9,7 +9,7 @@ import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 /// `Image.network` can show is a second, per-asset round trip.
 ///
 /// Before Mandate 5 that round trip was made by three different widgets, each
-/// reaching for `serviceLocator<ImageUploadService>()` and holding the result
+/// reaching for `serviceLocator<AssetService>()` and holding the result
 /// in a `Future` field behind a `FutureBuilder` — three private copies of
 /// state, invisible to any cubit. This cubit is that state's single owner.
 ///
@@ -26,11 +26,11 @@ import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 /// not eagerly for every attachment of every newsletter in the list. Eager
 /// resolution would multiply the request count the moment a page loaded.
 class NewsletterAssetUrlCubit extends Cubit<NewsletterAssetUrlState> {
-  NewsletterAssetUrlCubit({required ImageUploadService imageUploadService})
-    : _imageUploadService = imageUploadService,
+  NewsletterAssetUrlCubit({required AssetService assetService})
+    : _assetService = assetService,
       super(const NewsletterAssetUrlState.initial());
 
-  final ImageUploadService _imageUploadService;
+  final AssetService _assetService;
 
   /// Codes with a resolution in flight. Deliberately NOT part of the emitted
   /// state: no widget renders differently because of it (an unresolved code
@@ -44,7 +44,7 @@ class NewsletterAssetUrlCubit extends Cubit<NewsletterAssetUrlState> {
   /// whenever their code changes during list recycling.
   ///
   /// This does **not** add a network call over the previous `FutureBuilder`
-  /// code. `ImageUploadService.getMediaAssetUrlByCode` already keeps a session
+  /// code. `AssetService.getMediaAssetUrlByCode` already keeps a session
   /// cache, an in-flight map that shares one future between concurrent
   /// callers, and a failure cooldown. The guards here only avoid re-entering
   /// that method; the request count it makes is unchanged.
@@ -55,7 +55,7 @@ class NewsletterAssetUrlCubit extends Cubit<NewsletterAssetUrlState> {
 
     // Already resolved earlier this session → adopt it without a loading
     // frame, exactly as the `initialData:` seed on the old FutureBuilder did.
-    final String? cached = _imageUploadService.cachedMediaAssetUrl(code);
+    final String? cached = _assetService.cachedMediaAssetUrl(code);
     if (cached != null) {
       _emitUrl(code, cached);
       return;
@@ -63,7 +63,7 @@ class NewsletterAssetUrlCubit extends Cubit<NewsletterAssetUrlState> {
 
     _inFlight.add(code);
     try {
-      final String url = await _imageUploadService.getMediaAssetUrlByCode(
+      final String url = await _assetService.getMediaAssetUrlByCode(
         assetCode: code,
       );
       if (isClosed) return;

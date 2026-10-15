@@ -1,9 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/observability/app_events.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_manager.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
+import 'package:wowcare/shared/services/asset/asset_models.dart';
 
 import '../repositories/event_repository.dart';
 

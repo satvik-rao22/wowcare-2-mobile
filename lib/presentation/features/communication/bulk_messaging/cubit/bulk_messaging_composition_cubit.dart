@@ -5,8 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:mime/mime.dart';
-import 'package:path/path.dart' as p;
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/communication/services/messaging_session.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
@@ -345,10 +344,10 @@ class BulkMessagingCompositionCubit
       result.add(
         ChatAttachment(
           localPath: a.file.path,
-          name: p.basename(a.file.path),
+          name: FileUtils.fileName(a.file.path),
           type: a.isImage ? 'image' : 'document',
           sizeBytes: size,
-          mimeType: lookupMimeType(a.file.path) ?? 'application/octet-stream',
+          mimeType: await FileUtils.mimeTypeOfFile(a.file.path),
           remoteUrl: '',
         ),
       );

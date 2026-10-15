@@ -9,6 +9,7 @@ import '../../core/config/reg_config.dart';
 import '../../domain/entities/missed_signout.dart';
 import '../../domain/policy/reg_time_policy.dart';
 import 'reg_staff_time_row.dart';
+import 'reg_field_label.dart';
 
 /// One staff member's resolution inside a bulk sign-in gate.
 class RegBulkGateItem {
@@ -307,12 +308,7 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
       children: [
         Row(
           children: [
-            Text('Reason', style: Av2Text.bodyMedium),
-            const SizedBox(width: 6),
-            Text(
-              '(required)',
-              style: Av2Text.caption.copyWith(color: Av2Colors.textTertiary),
-            ),
+            const RegFieldLabel('Reason', isRequired: true),
             const Spacer(),
             if (edited > 0)
               Text(

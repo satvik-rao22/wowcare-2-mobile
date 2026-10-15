@@ -1,6 +1,8 @@
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_profile_absent_toggle_query.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_profile_query.dart';
@@ -208,8 +210,8 @@ class AttendanceV2RepositoryImpl implements AttendanceV2Repository {
     required DateTime signInLocal,
     DateTime? signOutLocal,
     required String timeZone,
-  }) {
-    final zone = Av2TimeZone.resolveZone(timeZone);
+  }) async {
+    final zone = await _schoolZone(timeZone);
     final body = <String, dynamic>{
       'staffCode': staffCode,
       'signedInAt': Av2TimeZone.toUtcIso(signInLocal, zone),
@@ -221,6 +223,31 @@ class AttendanceV2RepositoryImpl implements AttendanceV2Repository {
       body['signedOutMethod'] = Av2Config.editMethod;
     }
     return _overviewSource.editDailyRecord(recordCode: recordCode, body: body);
+  }
+
+  /// The school's IANA zone for converting picked wall-clock times to UTC.
+  ///
+  /// Never the overview's `period.timeZone` when the school zone is known:
+  /// that field can carry the admin's zone (e.g. Asia/Kolkata for a New York
+  /// school), which shifts every edited instant — even onto the previous day.
+  /// [fallback] is used only if the school zone can't be resolved.
+  Future<String> _schoolZone(String fallback) async {
+    String school;
+    try {
+      school = await SchoolTimezoneResolver.resolveForCurrentSchool(
+        storage: serviceLocator<StorageService>(),
+        apiClient: serviceLocator<ApiClient>(),
+      );
+    } catch (e) {
+      AppLogger.w('Av2 school timezone resolve failed: $e');
+      school = SchoolTimezoneResolver.lastKnownTimeZone;
+    }
+    final resolved =
+        school.trim().isEmpty ||
+            school.trim() == SchoolTimezoneResolver.fallbackTimeZone
+        ? fallback
+        : school;
+    return Av2TimeZone.resolveZone(resolved);
   }
 
   @override
@@ -327,7 +354,7 @@ class AttendanceV2RepositoryImpl implements AttendanceV2Repository {
     String? signOutClassroomCode,
     DateTime? signOutLocal,
   }) async {
-    final zone = Av2TimeZone.resolveZone(timeZone);
+    final zone = await _schoolZone(timeZone);
     final dateStr = _fmt(date);
     if (signInLocal != null && signInClassroomCode != null) {
       await _overviewSource.signIn(

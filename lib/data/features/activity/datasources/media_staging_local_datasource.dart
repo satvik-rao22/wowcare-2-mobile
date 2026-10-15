@@ -1,11 +1,11 @@
 import 'dart:io';
 import 'dart:math';
 
-import 'package:path_provider/path_provider.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/domain/features/activity/entities/staged_media.dart';
 
 /// Filesystem side of [MediaStagingRepository]. The only place in the app that
-/// touches `path_provider` or writes into the staging directory.
+/// writes into the staging directory.
 abstract class MediaStagingLocalDataSource {
   Future<StagedMedia> stage(String sourcePath);
   Future<void> discard(String stagedPath);
@@ -33,7 +33,7 @@ class FileMediaStagingLocalDataSource implements MediaStagingLocalDataSource {
   };
 
   Future<Directory> _stagingDir() async {
-    final docs = await getApplicationDocumentsDirectory();
+    final docs = await FileUtils.documentsDirectory();
     final dir = Directory('${docs.path}${Platform.pathSeparator}$_stagingDirName');
     if (!await dir.exists()) {
       await dir.create(recursive: true);

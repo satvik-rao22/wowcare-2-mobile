@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/src/app_router.dart'
     show AppRoutes, goToDashboardRoot, popAllShellBranchNavigators;
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -14,8 +13,6 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:wowcare/core/constants/app_strings.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/core/utils/school_switch_events.dart';
 import 'package:wowcare/core/utils/string_utils.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
@@ -74,7 +71,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   static String _dayAbbr(String day) =>
       day.length >= 3 ? day.substring(0, 3).toUpperCase() : day.toUpperCase();
 
-  final ImagePicker _picker = ImagePicker();
   late final UserProfileCubit _cubit;
   // Dedupes the one-time "failed to load profile" snackbar.
   bool _shownLoadError = false;
@@ -284,39 +280,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   String _effectiveStaffCode() => _cubit.effectiveStaffCode();
 
   Future<void> _pickProfileImage({
-    ImageSource source = ImageSource.gallery,
+    PickSource source = PickSource.photos,
   }) async {
-    final XFile? image;
-    try {
-      image = await _picker.pickImage(source: source);
-    } catch (e) {
-      AppLogger.w('Profile photo pick failed: $e');
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: AppStrings.attachmentPickFailed,
-        isError: true,
-      );
-      return;
-    }
-    if (image == null) return;
-    if (!mounted) return;
-    // image_picker can hand back a non-image from some gallery providers;
-    // the uploader would otherwise relabel it image/jpeg and send it anyway.
-    final isImage = await FilePickerUtils.isAllowedType(
-      name: image.name,
-      path: image.path,
-      allowedExtensions: FilePickerUtils.allowedImageExtensions,
+    final image = await FilePickerUtils.pickOne(
+      type: PickType.image,
+      source: source,
     );
-    if (!mounted) return;
-    if (!isImage) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: AppStrings.fileUnsupportedType(image.name),
-        isError: true,
-      );
-      return;
-    }
+    // FilePickerUtils already rejected anything that isn't an image (by
+    // name, or by content for a name with no extension) and said why.
+    if (image == null || !mounted) return;
     // The cubit branches staff vs guardian based on persona and streams upload
     // progress into state; we just surface the resulting snackbar.
     final isParent = context.read<RoleCubit>().isParent;
@@ -570,7 +542,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                               onChangePhoto: _pickProfileImage,
                                               onTakePhoto: () =>
                                                   _pickProfileImage(
-                                                    source: ImageSource.camera,
+                                                    source: PickSource.camera,
                                                   ),
                                               hasPhotoNow: () =>
                                                   _hasDeletableProfilePhoto(

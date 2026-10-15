@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 import 'package:wowcare/core/network/file_download_service.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/delete_student_document_usecase.dart';
@@ -42,6 +43,7 @@ void main() {
         getStudentDocumentsUseCase: _FakeGet(),
         deleteStudentDocumentUseCase: _FakeDelete(),
         repository: _UnusedRepo(),
+        assetService: _UnusedImageUpload(),
         fileDownloadService: downloader,
       );
 
@@ -53,4 +55,11 @@ void main() {
       await cubit.close();
     },
   );
+}
+
+/// Resolving URLs isn't exercised here; any call is a test bug.
+class _UnusedImageUpload implements AssetService {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName}');
 }

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:wowcare/app/di/messaging_resolvers.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 /// Resolves a [ChatAttachment] to a URL it can actually be displayed/opened
 /// from.
@@ -16,7 +16,7 @@ import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 /// message-list response never includes a delivery URL for those
 /// (`fileUrl`/`thumbnailUrl` come back null even once the asset is READY),
 /// so the URL has to be resolved against the document service separately —
-/// mirrors the web app's media-assets/resolve flow. [ImageUploadService]
+/// mirrors the web app's media-assets/resolve flow. [AssetService]
 /// caches the result so repeat renders (list scrolling, rebuilds) don't
 /// re-hit the network.
 Future<String?> resolveAttachmentUrl(ChatAttachment attachment) async {
@@ -26,7 +26,7 @@ Future<String?> resolveAttachmentUrl(ChatAttachment attachment) async {
   final assetCode = attachment.code?.trim() ?? '';
   if (assetCode.isEmpty) return null;
 
-  final uploadService = resolveImageUploadService();
+  final uploadService = resolveAssetService();
   final cached = uploadService.cachedMediaAssetUrl(assetCode);
   if (cached != null && cached.isNotEmpty) return cached;
 
@@ -76,11 +76,11 @@ class _AttachmentUrlResolverState extends State<AttachmentUrlResolver> {
   Timer? _retryTimer;
 
   /// How long to wait before re-checking an asset that's still backend-side
-  /// processing. Without this, once [ImageUploadService]'s own 15s poll times
+  /// processing. Without this, once [AssetService]'s own 15s poll times
   /// out, the "Processing…" placeholder is stuck until some UNRELATED widget
   /// rebuild (scroll, a different message arriving, …) happens to re-create
   /// this State and re-trigger resolution — which may never happen while the
-  /// user just sits on the thread. [ImageUploadService.getMediaAssetUrlByCode]
+  /// user just sits on the thread. [AssetService.getMediaAssetUrlByCode]
   /// already has its own 30s failure cooldown, so retrying here on a shorter
   /// cadence is cheap: most retries just re-read that cache with no network
   /// call, until the cooldown passes and a fresh poll actually runs.
@@ -114,7 +114,7 @@ class _AttachmentUrlResolverState extends State<AttachmentUrlResolver> {
       // forever.
       final assetCode = attachment.code?.trim() ?? '';
       if (assetCode.isEmpty) return;
-      if (!resolveImageUploadService().isAssetProcessing(assetCode)) {
+      if (!resolveAssetService().isAssetProcessing(assetCode)) {
         return;
       }
       _retryTimer = Timer(_processingRetryDelay, () {
@@ -145,7 +145,7 @@ class _AttachmentUrlResolverState extends State<AttachmentUrlResolver> {
               !isLoading &&
               (url == null || url.isEmpty) &&
               assetCode.isNotEmpty &&
-              resolveImageUploadService().isAssetProcessing(assetCode);
+              resolveAssetService().isAssetProcessing(assetCode);
           return widget.builder(context, url, isLoading, isProcessing);
         },
       ),

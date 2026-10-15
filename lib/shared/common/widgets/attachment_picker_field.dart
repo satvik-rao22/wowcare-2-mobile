@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:open_filex/open_filex.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_actions.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
 
 /// Horizontally scrolling attachment picker for forms.
@@ -20,9 +21,9 @@ class AttachmentPickerField extends StatelessWidget {
   const AttachmentPickerField({
     required this.files,
     required this.onChanged,
-    this.kind = FilePickerKind.imageAndDocument,
+    this.type = PickType.documentOrImage,
     this.maxFiles = FilePickerUtils.defaultMaxFiles,
-    this.maxSizeBytes = FilePickerUtils.defaultMaxFileSizeBytes,
+    this.maxSizeMB = 10,
     this.enabled = true,
     this.helperText,
     this.uploadState,
@@ -35,12 +36,13 @@ class AttachmentPickerField extends StatelessWidget {
   /// Called with the complete new list whenever files are added or removed.
   final ValueChanged<List<PickedFile>> onChanged;
 
-  final FilePickerKind kind;
+  final PickType type;
 
   /// Hard cap on attachments. Pass the upload session's `maxAssetCount` when
   /// one is available rather than relying on the default.
   final int maxFiles;
-  final int maxSizeBytes;
+  /// Per-file limit.
+  final int maxSizeMB;
 
   /// When false the field renders read-only: no add tile, no remove controls.
   final bool enabled;
@@ -158,8 +160,8 @@ class AttachmentPickerField extends StatelessWidget {
   }
 
   String _defaultHelperText() {
-    final extensions = FilePickerUtils.extensionsFor(kind);
-    final limit = FilePickerUtils.formatBytes(maxSizeBytes);
+    final extensions = FilePickerUtils.extensionsFor(type);
+    final limit = FileUtils.formatBytes(maxSizeMB * 1024 * 1024);
     if (extensions.isEmpty) return 'Up to $maxFiles files · $limit each';
     // Long allow-lists (a dozen image variants) are noise in a hint; name the
     // headline formats and let the picker enforce the rest.
@@ -168,15 +170,17 @@ class AttachmentPickerField extends StatelessWidget {
   }
 
   Future<void> _pick(BuildContext context) async {
-    final result = await FilePickerUtils.pickMultipleFiles(
-      kind: kind,
+    // FilePickerUtils re-checks every file, skips ones already attached or
+    // over the limit, and tells the user what it skipped.
+    final picked = await FilePickerUtils.pick(
+      type: type,
+      multiple: true,
       maxFiles: maxFiles,
-      maxSizeBytes: maxSizeBytes,
       existing: files,
-      context: context,
+      maxSizeMB: maxSizeMB,
     );
-    if (result.files.isEmpty) return;
-    onChanged([...files, ...result.files]);
+    if (picked.isEmpty) return;
+    onChanged([...files, ...picked]);
   }
 
   void _remove(PickedFile file) {
@@ -193,7 +197,7 @@ class AttachmentPickerField extends StatelessWidget {
       return;
     }
     // Anything else is handed to whatever app on the device owns the type.
-    await OpenFilex.open(file.path);
+    await FileActions.open(file.path, mimeType: file.mimeType);
   }
 }
 

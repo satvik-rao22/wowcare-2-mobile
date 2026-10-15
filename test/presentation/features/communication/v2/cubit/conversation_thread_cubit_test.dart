@@ -40,7 +40,7 @@ import 'package:wowcare/domain/features/communication/usecases/get_communication
 import 'package:wowcare/domain/features/communication/usecases/resolve_message_delete_permission_usecase.dart';
 import 'package:wowcare/presentation/features/communication/view_model/conversation_thread_cubit.dart';
 import 'package:wowcare/presentation/features/communication/view_model/conversation_thread_state.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 // ── Fakes ──────────────────────────────────────────────────────────────────────
 
@@ -206,6 +206,9 @@ class _FakeConversationEntityRepository
   int markConversationReadCallCount = 0;
 
   @override
+  Future<Either<Failure, int>> markAllRead() async => const Right(0);
+
+  @override
   Future<Either<Failure, void>> markConversationRead(
     String conversationCode,
   ) async {
@@ -368,13 +371,13 @@ class _FakeConversationEntityRepository
   }
 }
 
-/// Overrides `upload()` entirely, so the real `ImageUploadService`/
+/// Overrides `upload()` entirely, so the real `AssetService`/
 /// `StorageService` it's constructed with are never actually invoked — they
 /// only exist to satisfy [ChatAttachmentUploader]'s constructor.
 class _FakeChatAttachmentUploader extends ChatAttachmentUploader {
   _FakeChatAttachmentUploader()
     : super(
-        ImageUploadService(ApiClient(baseUrl: 'http://unused')),
+        AssetService(ApiClient(baseUrl: 'http://unused')),
         _UnusedStorageService(),
       );
 

@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/utils/location_service.dart';
 
 /// Runtime geofence configuration built from two backend sources:
 ///   - lat/lon  → GET /api/v1/schools/{schoolCode}/timezone
@@ -32,6 +33,13 @@ class GeofenceConfig extends Equatable {
 
   final bool autoSignOutEnabled;
   final int autoSignOutDelayMinutes;
+
+  /// The school's sign-in circle, for [LocationService] checks.
+  GeofenceArea get area => GeofenceArea(
+    latitude: latitude,
+    longitude: longitude,
+    radiusMeters: radiusMeters,
+  );
 
   @override
   List<Object?> get props => [

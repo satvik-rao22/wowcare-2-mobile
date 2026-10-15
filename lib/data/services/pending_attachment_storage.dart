@@ -1,7 +1,6 @@
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
@@ -47,8 +46,8 @@ abstract final class PendingAttachmentStorage {
   PendingAttachmentStorage._();
 
   static Future<String> _pendingUploadsDir() async {
-    final base = await getApplicationSupportDirectory();
-    final dir = Directory(p.join(base.path, 'pending_chat_uploads'));
+    final base = await FileUtils.supportDirectory();
+    final dir = Directory(FileUtils.join(base.path, 'pending_chat_uploads'));
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
@@ -75,7 +74,10 @@ abstract final class PendingAttachmentStorage {
       }
       try {
         final stamp = AppTime.nowUtc().microsecondsSinceEpoch;
-        final destPath = p.join(dirPath, 'chat_${stamp}_${p.basename(source)}');
+        final destPath = FileUtils.join(
+          dirPath,
+          'chat_${stamp}_${FileUtils.fileName(source)}',
+        );
         final copied = await File(source).copy(destPath);
         result.add(a.copyWith(localPath: copied.path));
       } catch (e) {

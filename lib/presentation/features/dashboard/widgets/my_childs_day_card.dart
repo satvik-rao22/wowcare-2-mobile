@@ -1,6 +1,7 @@
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/admin_chat_host_screen.dart';
 import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
@@ -23,6 +24,7 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_check.dart';
 import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -709,9 +711,8 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
     required GeofenceState geofenceState,
     required ParentChildState parentChildState,
   }) {
-    final bool enabled =
-        geofenceState.isWithinGeofence && geofenceState.parentGpsSignInEnabled;
-
+    // Always enabled: the tap checks permission and a fresh GPS fix
+    // (see _runIfAtSchool) instead of trusting the stored geofence state.
     final children = parentChildState.children;
     final signedInCodes = <String>[];
     final signedOutCodes = <String>[];
@@ -734,95 +735,92 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
     if (isMixed) {
       buttonLabel = 'Sign In / Out';
-      onPressed = enabled
-          ? () => context.go(
-              DashboardRoutes.childSignInOutSelection,
-              extra: ChildSignInOutSelectionArgs(
-                signedInCodes: signedInCodes,
-                signedOutCodes: signedOutCodes,
-              ),
-            )
-          : null;
+      onPressed = () => _runIfAtSchool(
+        'sign in or out',
+        () => context.go(
+          DashboardRoutes.childSignInOutSelection,
+          extra: ChildSignInOutSelectionArgs(
+            signedInCodes: signedInCodes,
+            signedOutCodes: signedOutCodes,
+          ),
+        ),
+      );
     } else if (signedOutCodes.isEmpty) {
       buttonLabel = 'Sign Out';
-      onPressed = enabled
-          ? () {
-              final signedInChildren = children
-                  .where((c) => signedInCodes.contains(c.code.trim()))
-                  .toList();
-              final students = signedInChildren.asMap().entries.map((entry) {
-                final index = entry.key;
-                final child = entry.value;
-                return student_sign_out.StudentEntity(
-                  id: index + 1,
-                  studentCode: child.code,
-                  fullName: child.name,
-                  roomId: 0,
-                  roomName: child.primaryClassroomName ?? child.classroom,
-                  classroomCode: '',
-                  photoUuid: '',
-                );
-              }).toList();
+      onPressed = () => _runIfAtSchool('sign out', () {
+        final signedInChildren = children
+            .where((c) => signedInCodes.contains(c.code.trim()))
+            .toList();
+        final students = signedInChildren.asMap().entries.map((entry) {
+          final index = entry.key;
+          final child = entry.value;
+          return student_sign_out.StudentEntity(
+            id: index + 1,
+            studentCode: child.code,
+            fullName: child.name,
+            roomId: 0,
+            roomName: child.primaryClassroomName ?? child.classroom,
+            classroomCode: '',
+            photoUuid: '',
+          );
+        }).toList();
 
-              unawaited(
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => student_sign_out.StudentSignOutForm(
-                      students: students,
-                      popOnSuccess: true,
-                      refreshCallback: () =>
-                          _refreshSignInStatusAfterAction(children),
-                    ),
-                  ),
-                  // TODO: Temporarily disabled Sign Out bottom sheet and push notification.
-                ).then((_) {
-                  // if (mounted) _refreshSignInStatusAfterAction(children);
-                }),
-              );
-            }
-          : null;
+        unawaited(
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => student_sign_out.StudentSignOutForm(
+                students: students,
+                popOnSuccess: true,
+                refreshCallback: () =>
+                    _refreshSignInStatusAfterAction(children),
+              ),
+            ),
+            // TODO: Temporarily disabled Sign Out bottom sheet and push notification.
+          ).then((_) {
+            // if (mounted) _refreshSignInStatusAfterAction(children);
+          }),
+        );
+      });
     } else {
       buttonLabel = 'Sign In';
-      onPressed = enabled
-          ? () {
-              final signedOutChildren = children
-                  .where((c) => signedOutCodes.contains(c.code.trim()))
-                  .toList();
-              final students = signedOutChildren.asMap().entries.map((entry) {
-                final index = entry.key;
-                final child = entry.value;
-                return student_sign_in.StudentEntity(
-                  id: index + 1,
-                  studentCode: child.code,
-                  fullName: child.name,
-                  roomId: 0,
-                  roomName: child.primaryClassroomName ?? child.classroom,
-                  classroomCode: '',
-                  photoUuid: null,
-                  isExpectedToday: true,
-                );
-              }).toList();
+      onPressed = () => _runIfAtSchool('sign in', () {
+        final signedOutChildren = children
+            .where((c) => signedOutCodes.contains(c.code.trim()))
+            .toList();
+        final students = signedOutChildren.asMap().entries.map((entry) {
+          final index = entry.key;
+          final child = entry.value;
+          return student_sign_in.StudentEntity(
+            id: index + 1,
+            studentCode: child.code,
+            fullName: child.name,
+            roomId: 0,
+            roomName: child.primaryClassroomName ?? child.classroom,
+            classroomCode: '',
+            photoUuid: null,
+            isExpectedToday: true,
+          );
+        }).toList();
 
-              unawaited(
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => student_sign_in.StudentSignInForm(
-                      students: students,
-                      refreshCallback: () =>
-                          _refreshSignInStatusAfterAction(children),
-                      popOnSuccess: true,
-                    ),
-                  ),
-                  // TODO: Temporarily disabled Sign Out bottom sheet and push notification after Sign In.
-                  // Status will be checked on next dashboard refresh or app resume.
-                ).then((_) {
-                  // if (mounted) _refreshSignInStatusAfterAction(children);
-                }),
-              );
-            }
-          : null;
+        unawaited(
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => student_sign_in.StudentSignInForm(
+                students: students,
+                refreshCallback: () =>
+                    _refreshSignInStatusAfterAction(children),
+                popOnSuccess: true,
+              ),
+            ),
+            // TODO: Temporarily disabled Sign Out bottom sheet and push notification after Sign In.
+            // Status will be checked on next dashboard refresh or app resume.
+          ).then((_) {
+            // if (mounted) _refreshSignInStatusAfterAction(children);
+          }),
+        );
+      });
     }
 
     return Padding(
@@ -855,17 +853,28 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
           ],
         ),
         onPressedConfirm: onPressed,
-        disabledConfirmTooltip: 'You are not within  geofencing Range',
-        onDisabledConfirmTap: () {
-          if (!mounted) return;
-          CoreUtils.showTopSnackBar(
-            isWarning: true,
-            message: 'You are not within geofencing Range',
-            context: context,
-          );
-        },
       ),
     );
+  }
+
+  /// Runs [proceed] only after the permission + fresh "at school" check.
+  Future<void> _runIfAtSchool(String action, VoidCallback proceed) async {
+    // This tap is handling sign-in, so the fresh check moving the state to
+    // withinRange must not also pop the geofence sign-in sheet on top.
+    // Restored if we stop, so the popup still shows when they reach school.
+    final popupWasShown = _geofencePopupShownThisEntry;
+    _geofencePopupShownThisEntry = true;
+    final atSchool = await confirmAtSchool(
+      context,
+      forParent: true,
+      action: action,
+    );
+    if (!mounted) return;
+    if (!atSchool) {
+      _geofencePopupShownThisEntry = popupWasShown;
+      return;
+    }
+    proceed();
   }
 
   // ----- Reminder row -----
@@ -1188,9 +1197,13 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                                                   right: 24.0,
                                                 ),
                                                 child: GestureDetector(
-                                                  onTap: () => context
-                                                      .read<GeofenceCubit>()
-                                                      .retryPermission(),
+                                                  // Explains, asks, or shows Settings steps
+                                                  // when permanently denied — retryPermission
+                                                  // did nothing in that case.
+                                                  onTap: () =>
+                                                      enableGeofenceLocation(
+                                                        context,
+                                                      ),
                                                   child: Text(
                                                     'Location permission required. Tap to enable.',
                                                     style: TextStyle(
@@ -1548,12 +1561,16 @@ class _MyChildsDayChatPreviewRowState
     return mine.first;
   }
 
+  /// Opens the same parent chat screen as the Messages tab (Private toggle,
+  /// "Private by …" chip, refresh) instead of the generic thread screen, so the
+  /// chat looks and behaves the same from either entry point. Both screens
+  /// follow the currently selected child.
   void _openConversation(ConversationEntity conversation) {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => ConversationThreadScreen(conversation: conversation),
-      ),
-    );
+    if (conversation.type == ConversationType.adminChat) {
+      context.push(AdminChatHostScreen.routeName);
+    } else {
+      context.go(MessagingScreen.parentMessagingRoute);
+    }
   }
 
   @override
@@ -1578,7 +1595,9 @@ class _MyChildsDayChatPreviewRowState
     final senderPrefix = isSentByMe ? 'You: ' : '';
 
     final preview = conversation != null
-        ? MessageContentProcessor.previewText(conversation.lastMessagePreview)
+        ? MessageContentProcessor.previewText(
+            conversation.previewForGuardian(_currentUserCode),
+          )
         : '';
     final displayText = preview.isNotEmpty
         ? '$senderPrefix$preview'

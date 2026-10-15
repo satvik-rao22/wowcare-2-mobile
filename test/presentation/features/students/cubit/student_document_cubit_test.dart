@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:dartz/dartz.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -10,8 +10,8 @@ import 'package:wowcare/domain/features/student/repositories/student_repository.
 import 'package:wowcare/domain/features/student/usecases/add_student_document_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/update_student_document_usecase.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_document_cubit.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_models.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 class _FakeRepo implements StudentRepository {
   @override
@@ -99,7 +99,7 @@ class _FakeStorage implements StorageService {
       throw UnimplementedError('${invocation.memberName} was not expected');
 }
 
-class _FakeUploadService implements ImageUploadService {
+class _FakeUploadService implements AssetService {
   Object? sessionError;
   Object? putError;
   int progressTo = 0;
@@ -175,6 +175,29 @@ class _FakeUploadService implements ImageUploadService {
     waitReadyCalls++;
   }
 
+  /// The whole upload in one call, as the cubit now uses it: the same
+  /// switches and counters as the step-by-step fakes above.
+  @override
+  Future<UploadedAsset> uploadToSession({
+    required UploadSessionResult session,
+    required File file,
+    required AssetOwner owner,
+    String? fileName,
+    String? contentType,
+    bool waitUntilReady = true,
+    void Function(int percent)? onUploadProgress,
+    dynamic cancelToken,
+  }) async {
+    lastOwner = owner;
+    if (putError != null) throw putError!;
+    if (progressTo > 0) onUploadProgress?.call(progressTo);
+    completeCalls++;
+    if (waitUntilReady) waitReadyCalls++;
+    return const UploadedAsset(assetCode: 'ASSET1');
+  }
+
+  AssetOwner? lastOwner;
+
   @override
   Future<String> getMediaAssetUrlByCode({required String assetCode}) async =>
       assetUrl;
@@ -193,7 +216,7 @@ class _Fakes {
   StudentDocumentCubit build() => StudentDocumentCubit(
         addStudentDocumentUseCase: add,
         updateStudentDocumentUseCase: update,
-        imageUploadService: upload,
+        assetService: upload,
         storageService: storage,
       );
 }
@@ -212,8 +235,13 @@ void main() {
     if (await tempFile.exists()) await tempFile.delete();
   });
 
-  PlatformFile pickedFile() =>
-      PlatformFile(name: 'report.pdf', size: 5, path: tempFile.path);
+  PickedFile pickedFile() => PickedFile(
+    name: 'report.pdf',
+    sizeBytes: 5,
+    extension: 'pdf',
+    path: tempFile.path,
+    mimeType: 'application/pdf',
+  );
 
   void seedSchool(_Fakes fakes) {
     fakes.storage.values[StorageKeys.schoolCode] = 'SCH';

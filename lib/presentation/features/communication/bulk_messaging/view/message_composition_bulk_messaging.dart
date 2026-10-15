@@ -1,12 +1,8 @@
-import 'dart:io';
-import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
-import 'package:mime/mime.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:thumbnailer/thumbnailer.dart';
-import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/cubit/bulk_messaging_composition_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/rich_text_toolbar.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/html_aware_text_controller.dart';
@@ -48,101 +44,34 @@ class _MessageCompositionBulkMessagingState
 
   static const int maxChars = 2000;
 
-  static const int _maxAttachmentBytes = 10 * 1024 * 1024;
+  /// Bulk-message attachments: up to 10 MB each. FilePickerUtils drops
+  /// anything bigger or of an unsupported type and tells the user why.
+  static const int _maxSizeMB = 10;
 
   Future<void> _pickImage() async {
-    final List<XFile> picked;
-    try {
-      picked = await ImagePicker().pickMultiImage();
-    } catch (e) {
-      AppLogger.w('Bulk message image pick failed: $e');
-      if (mounted) _showErrorMessage(AppStrings.attachmentPickFailed);
-      return;
-    }
-    if (picked.isEmpty) return;
-    await _addValidated(
-      picked.map((x) => (name: x.name, path: x.path)).toList(),
-      allowedExtensions: FilePickerUtils.allowedImageExtensions,
+    final files = await FilePickerUtils.pick(
+      type: PickType.image,
+      source: PickSource.photos,
+      multiple: true,
+      maxSizeMB: _maxSizeMB,
+    );
+    if (files.isEmpty || !mounted) return;
+    _compositionCubit.addAttachments(
+      [for (final f in files) f.file],
       isImage: true,
     );
   }
 
   Future<void> _pickFile() async {
-    final FilePickerResult? result;
-    try {
-      result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: FilePickerUtils.allowedDocumentExtensions,
-        allowMultiple: true,
-      );
-    } catch (e) {
-      AppLogger.w('Bulk message file pick failed: $e');
-      if (mounted) _showErrorMessage(AppStrings.attachmentPickFailed);
-      return;
-    }
-    if (result == null || result.files.isEmpty) return;
-    await _addValidated(
-      result.files.map((f) => (name: f.name, path: f.path)).toList(),
-      allowedExtensions: FilePickerUtils.allowedDocumentExtensions,
+    final files = await FilePickerUtils.pick(
+      multiple: true,
+      maxSizeMB: _maxSizeMB,
+    );
+    if (files.isEmpty || !mounted) return;
+    _compositionCubit.addAttachments(
+      [for (final f in files) f.file],
       isImage: false,
     );
-  }
-
-  /// Re-checks every pick (the OS filter is not airtight on every provider)
-  /// and reports each rejection reason instead of dropping files silently.
-  Future<void> _addValidated(
-    List<({String name, String? path})> picked, {
-    required List<String> allowedExtensions,
-    required bool isImage,
-  }) async {
-    final valid = <File>[];
-    final unsupported = <String>[];
-    final unreadable = <String>[];
-    final tooLarge = <String>[];
-    for (final pick in picked) {
-      final path = pick.path;
-      if (path == null || path.isEmpty) {
-        unreadable.add(pick.name);
-        continue;
-      }
-      if (!await FilePickerUtils.isAllowedType(
-        name: pick.name,
-        path: path,
-        allowedExtensions: allowedExtensions,
-      )) {
-        unsupported.add(pick.name);
-        continue;
-      }
-      final file = File(path);
-      try {
-        if (await file.length() > _maxAttachmentBytes) {
-          tooLarge.add(pick.name);
-          continue;
-        }
-      } catch (_) {
-        unreadable.add(pick.name);
-        continue;
-      }
-      valid.add(file);
-    }
-
-    if (!mounted) return;
-    final rejected = unsupported.length + unreadable.length + tooLarge.length;
-    if (rejected > 0) {
-      final String message;
-      if (rejected > 1) {
-        message = AppStrings.filesCouldNotBeAttached(rejected);
-      } else if (unsupported.isNotEmpty) {
-        message = AppStrings.fileUnsupportedType(unsupported.first);
-      } else if (unreadable.isNotEmpty) {
-        message = AppStrings.fileUnreadable(unreadable.first);
-      } else {
-        message = AppStrings.fileTooLarge;
-      }
-      _showErrorMessage(message);
-    }
-    if (valid.isEmpty) return;
-    _compositionCubit.addAttachments(valid, isImage: isImage);
   }
 
   void _removeAttachment(int index) {
@@ -183,17 +112,6 @@ class _MessageCompositionBulkMessagingState
     _focusNode.dispose();
     // Not closed here — the route's BlocProvider owns the cubit's lifecycle.
     super.dispose();
-  }
-
-  void _showErrorMessage(String message) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: message,
-        isError: true,
-      );
-    });
   }
 
   @override
@@ -562,8 +480,7 @@ class _MessageCompositionBulkMessagingState
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Thumbnail(
-              mimeType:
-                  lookupMimeType(att.file.path) ?? 'application/octet-stream',
+              mimeType: FileUtils.mimeType(att.file.path),
               dataResolver: () async {
                 return await att.file.readAsBytes();
               },

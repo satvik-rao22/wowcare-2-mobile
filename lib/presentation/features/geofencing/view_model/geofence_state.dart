@@ -15,6 +15,28 @@ enum GeofenceCubitStatus {
   error,
 }
 
+/// Outcome of [GeofenceCubit.checkAtSchoolNow].
+enum AtSchoolCheck {
+  atSchool,
+  notAtSchool,
+
+  /// The phone's Location (GPS) switch is off.
+  gpsOff,
+  noPermission,
+
+  /// The school admin turned GPS sign-in off.
+  gpsSignInOff,
+
+  /// No GPS fix within the time limit.
+  locationUnavailable,
+
+  /// The position came from a fake-GPS (mock location) app.
+  fakeLocation,
+
+  /// School location isn't loaded (no school, or the API failed).
+  notReady,
+}
+
 class GeofenceState extends Equatable {
   const GeofenceState({
     required this.status,
@@ -25,7 +47,7 @@ class GeofenceState extends Equatable {
     this.gpsSignInEnabled = true,
     this.parentGpsSignInEnabled = true,
     this.isStaffSignedIn = false,
-    this.permissionLevel = LocationPermissionLevel.denied,
+    this.locationPermission = AppPermissionStatus.denied,
     this.allChildrenSignedIn = false,
     this.isSignInStatusLoading = false,
     this.refreshNonce = 0,
@@ -40,7 +62,7 @@ class GeofenceState extends Equatable {
       gpsSignInEnabled = true,
       parentGpsSignInEnabled = true,
       isStaffSignedIn = false,
-      permissionLevel = LocationPermissionLevel.denied,
+      locationPermission = AppPermissionStatus.denied,
       allChildrenSignedIn = false,
       isSignInStatusLoading = false,
       refreshNonce = 0;
@@ -71,10 +93,9 @@ class GeofenceState extends Equatable {
   /// Sign Out" notification when there's nothing left to act on.
   final bool allChildrenSignedIn;
 
-  /// Normalized OS location permission level. Internal plumbing only — does
-  /// not currently drive any gating; [isWithinGeofence]/[status] remain the
-  /// source of truth for Sign-In availability.
-  final LocationPermissionLevel permissionLevel;
+  /// Location permission as last read from the OS. Internal plumbing only —
+  /// [status] remains the source of truth for Sign-In availability.
+  final AppPermissionStatus locationPermission;
 
   /// True when the sign-in status is actively being fetched.
   final bool isSignInStatusLoading;
@@ -102,7 +123,7 @@ class GeofenceState extends Equatable {
     bool? gpsSignInEnabled,
     bool? parentGpsSignInEnabled,
     bool? isStaffSignedIn,
-    LocationPermissionLevel? permissionLevel,
+    AppPermissionStatus? locationPermission,
     bool? allChildrenSignedIn,
     bool? isSignInStatusLoading,
     int? refreshNonce,
@@ -116,7 +137,7 @@ class GeofenceState extends Equatable {
     parentGpsSignInEnabled:
         parentGpsSignInEnabled ?? this.parentGpsSignInEnabled,
     isStaffSignedIn: isStaffSignedIn ?? this.isStaffSignedIn,
-    permissionLevel: permissionLevel ?? this.permissionLevel,
+    locationPermission: locationPermission ?? this.locationPermission,
     allChildrenSignedIn: allChildrenSignedIn ?? this.allChildrenSignedIn,
     isSignInStatusLoading: isSignInStatusLoading ?? this.isSignInStatusLoading,
     refreshNonce: refreshNonce ?? this.refreshNonce,
@@ -132,7 +153,7 @@ class GeofenceState extends Equatable {
     gpsSignInEnabled,
     parentGpsSignInEnabled,
     isStaffSignedIn,
-    permissionLevel,
+    locationPermission,
     allChildrenSignedIn,
     isSignInStatusLoading,
     refreshNonce,

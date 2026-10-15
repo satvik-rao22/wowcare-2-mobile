@@ -8,7 +8,7 @@ import 'package:wowcare/domain/features/staff/usecases/delete_staff_document_use
 import 'package:wowcare/domain/features/staff/usecases/get_staff_documents_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/load_cached_staff_documents_usecase.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_documents_list_cubit.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 // Covers the paths of StaffDocumentsListCubit the existing download-only test
 // leaves untested: cache-first loadInitial + revalidate, loadNextPage
@@ -108,7 +108,7 @@ class _StubDelete extends DeleteStaffDocumentUseCase {
 /// The cubit no longer holds a repository — the cache read moved behind
 /// [LoadCachedStaffDocumentsUseCase] so it stops type-testing the repository
 /// itself. The fake repo is now handed to that use case instead.
-class _UnusedImageUpload implements ImageUploadService {
+class _UnusedImageUpload implements AssetService {
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError('${invocation.memberName} was not expected');
@@ -126,7 +126,7 @@ StaffDocumentsListCubit _cubit({
     loadCachedStaffDocumentsUseCase: LoadCachedStaffDocumentsUseCase(
       repository,
     ),
-    imageUploadService: _UnusedImageUpload(),
+    assetService: _UnusedImageUpload(),
   );
 }
 

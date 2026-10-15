@@ -4,15 +4,14 @@ import 'package:chewie/chewie.dart';
 import 'package:ffmpeg_kit_flutter_new_https/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_https/return_code.dart';
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/network/file_download_service.dart';
+import 'package:wowcare/core/utils/file_utils/file_actions.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:flutter/services.dart';
-import 'package:gal/gal.dart';
-import 'package:http/http.dart' as http;
-import 'package:path/path.dart' as path;
-import 'package:wowcare/data/services/messaging_media_downloader.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/shared/common/widgets/hls_web_player.dart';
@@ -116,15 +115,15 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
         // Local file unreadable/missing; fall through to the URL.
       }
     }
-    // The message bubble's own thumbnail loads the same URL via a retrying
-    // byte-fetch (see MessageBubble._fetchImageBytesWithRetry) — a single
+    // The message bubble's own thumbnail loads the same URL via the same
+    // retrying byte-fetch (FileDownloadService.downloadImageBytes) — a single
     // transient hiccup (CDN not fully propagated yet, brief network blip)
     // makes the thumbnail retry through it invisibly, while a bare
     // Image.network here failed outright on the very first attempt. Mirror
     // that resilience so "the preview loaded fine" never disagrees with
     // "full screen failed to load" for the exact same URL.
     if (_hasUsableImageUrl) {
-      return _fetchImageBytesWithRetry(widget.imageUrl!);
+      return FileDownloadService.instance.downloadImageBytes(widget.imageUrl!);
     }
     return Uint8List(0);
   }
@@ -149,7 +148,7 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
     String url,
     String fileName,
   ) async {
-    final outPath = path.join(await messagingMediaTempDirPath(), fileName);
+    final outPath = await FileUtils.tempFilePath(fileName);
 
     if (_isHlsUrl(url)) {
       Future<bool> runCopy(List<String> args) async {
@@ -179,7 +178,7 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
       throw Exception(out ?? 'Could not convert stream to a video file.');
     }
 
-    await downloadMessagingMediaToFile(url, outPath);
+    await FileDownloadService.instance.downloadToFile(url, outPath);
     return outPath;
   }
 
@@ -187,8 +186,8 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
     String url,
     String fileName,
   ) async {
-    final outPath = path.join(await messagingMediaTempDirPath(), fileName);
-    await downloadMessagingMediaToFile(url, outPath);
+    final outPath = await FileUtils.tempFilePath(fileName);
+    await FileDownloadService.instance.downloadToFile(url, outPath);
     return outPath;
   }
 
@@ -207,22 +206,7 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
 
     _isDownloading.value = true;
     try {
-      final hasAccess = await Gal.hasAccess(toAlbum: true);
-      if (!hasAccess) {
-        await Gal.requestAccess(toAlbum: true);
-      }
-      if (!await Gal.hasAccess(toAlbum: true)) {
-        if (!mounted) return;
-        CoreUtils.showTopSnackBarFromSnackBar(
-          context: context,
-          snackBar: const SnackBar(
-            content: Text(
-              AppStrings.mediaPermissionRequired,
-            ),
-          ),
-        );
-        return;
-      }
+      if (!await FileActions.ensureGalleryAccess()) return;
 
       final stamp = AppTime.nowUtc().millisecondsSinceEpoch;
       if (hasVideo) {
@@ -232,13 +216,13 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
           final videoUrl = widget.videoUrl!;
           final tempName = _isHlsUrl(videoUrl)
               ? 'wowcare_video_$stamp.mp4'
-              : 'wowcare_video_$stamp${path.extension(Uri.parse(videoUrl).path).isNotEmpty ? path.extension(Uri.parse(videoUrl).path) : '.mp4'}';
+              : 'wowcare_video_$stamp.${FileUtils.extension(videoUrl).isNotEmpty ? FileUtils.extension(videoUrl) : 'mp4'}';
           filePath = await _materializeVideoToTempFile(videoUrl, tempName);
           isTemp = true;
         } else {
           filePath = widget.videoFile!.path;
         }
-        await Gal.putVideo(filePath);
+        await FileActions.saveToGallery(filePath, isVideo: true);
         if (isTemp) {
           try {
             await File(filePath).delete();
@@ -249,20 +233,16 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
         var isTemp = false;
         if (_hasUsableImageUrl) {
           final imageUrl = widget.imageUrl!;
-          final ext = path
-              .extension(Uri.parse(imageUrl).path)
-              .trim()
-              .toLowerCase();
-          final safeExt = ext.isNotEmpty ? ext : '.jpg';
+          final ext = FileUtils.extension(imageUrl);
           filePath = await _materializePhotoToTempFile(
             imageUrl,
-            'wowcare_photo_$stamp$safeExt',
+            'wowcare_photo_$stamp.${ext.isNotEmpty ? ext : 'jpg'}',
           );
           isTemp = true;
         } else {
           filePath = widget.imageFile!.path;
         }
-        await Gal.putImage(filePath);
+        await FileActions.saveToGallery(filePath, isVideo: false);
         if (isTemp) {
           try {
             await File(filePath).delete();
@@ -275,11 +255,11 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
         context: context,
         snackBar: const SnackBar(content: Text(AppStrings.savedToGallery)),
       );
-    } on GalException catch (e) {
+    } on GallerySaveException catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: SnackBar(content: Text(e.type.message)),
+        snackBar: SnackBar(content: Text(e.message)),
       );
     } catch (e) {
       if (!mounted) return;
@@ -293,41 +273,6 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
       if (mounted) _isDownloading.value = false;
     }
   }
-
-  Future<Uint8List> _fetchImageBytesWithRetry(String url) async {
-    const attempts = 5;
-    for (var i = 0; i < attempts; i++) {
-      try {
-        final response = await http.get(Uri.parse(url));
-        // A 200 response isn't proof the body is actually a decodable image
-        // — a still-propagating CDN edge, an auth/redirect landing page, or
-        // a body cut short mid-transfer all come back as 200 with non-image
-        // bytes. Handing those straight to Image.memory is what threw
-        // "Invalid image data" here (and, since MemoryImage decodes async,
-        // past errorBuilder's ability to just quietly show the fallback —
-        // it's also reported to the image resource service's error stream).
-        // Verify the bytes actually decode before accepting this attempt as
-        // a success; anything that doesn't decode is treated exactly like a
-        // network failure and retried.
-        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-          final bytes = response.bodyBytes;
-          try {
-            final codec = await ui.instantiateImageCodec(bytes);
-            codec.dispose();
-            return bytes;
-          } catch (_) {
-            // Falls through to retry below.
-          }
-        }
-      } catch (_) {}
-      if (i < attempts - 1) {
-        await Future.delayed(Duration(milliseconds: 600 * (i + 1)));
-      }
-    }
-    return Uint8List(0);
-  }
-
-
 
   @override
   Widget build(BuildContext context) {

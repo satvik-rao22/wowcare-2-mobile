@@ -3,78 +3,56 @@ import 'dart:io';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_models.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 /// ViewModel seam for [SchoolCloudImageUploaderDialog] — a self-contained
 /// image-picker/upload dialog unrelated to activity editing, so it gets its
-/// own small cubit rather than piggybacking on [ActivityEditorCubit]. Thin
-/// pass-throughs to [StorageService]/[ImageUploadService], matching the
-/// dialog's existing call shapes exactly (Mandate 5: "Presentation calls
-/// cubits only" — the View no longer resolves DI dependencies itself).
+/// own small cubit rather than piggybacking on [ActivityEditorCubit]. It owns
+/// the server steps; the dialog only drives the per-image loop and progress
+/// (Mandate 5: "Presentation calls cubits only").
 class SchoolCloudImageUploaderCubit
     extends Cubit<SchoolCloudImageUploaderState> {
   SchoolCloudImageUploaderCubit({
     required StorageService storageService,
-    required ImageUploadService imageUploadService,
+    required AssetService assetService,
   }) : _storage = storageService,
-       _uploadService = imageUploadService,
+       _uploadService = assetService,
        super(const SchoolCloudImageUploaderState());
 
   final StorageService _storage;
-  final ImageUploadService _uploadService;
+  final AssetService _uploadService;
 
   Future<String> getSchoolCode() async =>
       (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
 
-  Future<UploadSessionResult> createSchoolCloudUploadSession({
+  /// Uploads one image to the school's cloud gallery: a fresh session, then
+  /// presign → PUT → complete. Doesn't wait for server processing — the
+  /// gallery shows the image once it's ready. [onUploadProgress] reports the
+  /// PUT's 0–100 %.
+  Future<void> uploadImage(
+    File image, {
     required String schoolCode,
-  }) => _uploadService.createSchoolCloudUploadSession(schoolCode: schoolCode);
-
-  Future<AssetPresignResult> createAssetPresign({
-    required String sessionCode,
-    required String documentApiBasePath,
-    required String fileName,
-    required String contentType,
-    required int contentLengthBytes,
-    required String mediaType,
-    required String ownerType,
-    required String ownerCode,
-  }) => _uploadService.createAssetPresign(
-    sessionCode: sessionCode,
-    documentApiBasePath: documentApiBasePath,
-    fileName: fileName,
-    contentType: contentType,
-    contentLengthBytes: contentLengthBytes,
-    mediaType: mediaType,
-    ownerType: ownerType,
-    ownerCode: ownerCode,
-  );
-
-  Future<void> uploadFileToPresignedUrl({
-    required File file,
-    required String presignedPutUrl,
-    required Map<String, String> requiredHeaders,
-    required String fallbackContentType,
-    void Function(int sentBytes, int totalBytes, int percent)? onProgress,
-  }) => _uploadService.uploadFileToPresignedUrl(
-    file: file,
-    presignedPutUrl: presignedPutUrl,
-    requiredHeaders: requiredHeaders,
-    fallbackContentType: fallbackContentType,
-    onProgress: onProgress,
-  );
-
-  Future<void> completeAssetUpload({
-    required String sessionCode,
-    required String assetCode,
-    required String documentApiBasePath,
-  }) => _uploadService.completeAssetUpload(
-    sessionCode: sessionCode,
-    assetCode: assetCode,
-    documentApiBasePath: documentApiBasePath,
-  );
+    void Function(int percent)? onUploadProgress,
+  }) async {
+    final session = await _uploadService.createSchoolCloudUploadSession(
+      schoolCode: schoolCode,
+    );
+    await _uploadService.uploadToSession(
+      session: session,
+      file: image,
+      owner: AssetOwner.school(schoolCode),
+      fileName: image.uri.pathSegments.isNotEmpty
+          ? image.uri.pathSegments.last
+          : 'image-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
+      contentType: await FileUtils.imageMimeTypeOfFile(image.path),
+      waitUntilReady: false,
+      onUploadProgress: onUploadProgress,
+    );
+  }
 }
 
 /// Stateless marker state — this cubit is a data facade; the dialog keeps its

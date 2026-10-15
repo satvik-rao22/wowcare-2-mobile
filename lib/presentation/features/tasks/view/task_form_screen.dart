@@ -10,7 +10,7 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
@@ -28,6 +28,7 @@ import 'package:wowcare/shared/common/widgets/attachment_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
 import 'package:wowcare/core/theme/app_haptics.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 /// Create/edit form for a task. A single scrollable mobile form replaces the
 /// web design's dialog: basics up top, scheduling and recurrence below.
@@ -1009,7 +1010,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   //   return TaskAttachmentPicker(
   //     existing: _existingAttachments,
   //     pending: _pendingAttachments,
-  //     uploadService: context.read<TasksCubit>().imageUploadService,
+  //     uploadService: context.read<TasksCubit>().assetService,
   //     uploadProgress: _uploadProgress,
   //     uploadedPaths: _uploadedAssetCodes.keys.toSet(),
   //     isUploading: _uploadingAttachment,
@@ -1058,7 +1059,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           fileName: uploaded[i].name,
           contentType: uploaded[i].mimeType,
           sizeBytes: uploaded[i].sizeBytes,
-          mediaType: uploaded[i].mediaType,
+          mediaType: AssetService.mediaTypeFor(uploaded[i].mimeType),
         ),
     ];
   }

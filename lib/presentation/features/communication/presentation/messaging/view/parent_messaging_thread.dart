@@ -3740,14 +3740,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         );
       },
       onViewParticipants: _showParticipantsDialog,
-      onAttachmentError: (message) {
-        if (!mounted) return;
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: message,
-          isError: true,
-        );
-      },
     );
   }
 

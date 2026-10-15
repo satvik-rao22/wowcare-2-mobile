@@ -539,6 +539,10 @@ class _FamilyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     final isTablet = responsive.isTabletCompact;
+    // Staff must not see guardian contact details or sign-in PIN. Also hidden
+    // until the persona resolves, since `RoleState.role` defaults to `admin`.
+    final role = context.watch<RoleCubit>();
+    final showContactDetails = role.isPersonaResolved && !role.isStaff;
 
     return IntrinsicHeight(
       child: Container(
@@ -637,39 +641,44 @@ class _FamilyCard extends StatelessWidget {
                       Text(relation, style: AppTextStyles.value),
                     ],
                   ),
-                  const SizedBox(height: AppSpacing.s10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(StudentStrings.emailId, style: AppTextStyles.label),
-                      Text(email, style: AppTextStyles.value),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.s10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        StudentStrings.phoneNumber,
-                        style: AppTextStyles.label,
-                      ),
-                      Text(phone, style: AppTextStyles.value),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.s10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        StudentStrings.signInPin,
-                        style: AppTextStyles.label,
-                      ),
-                      Text(pin, style: AppTextStyles.value),
-                    ],
-                  ),
+                  if (showContactDetails) ...[
+                    const SizedBox(height: AppSpacing.s10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          StudentStrings.emailId,
+                          style: AppTextStyles.label,
+                        ),
+                        Text(email, style: AppTextStyles.value),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.s10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          StudentStrings.phoneNumber,
+                          style: AppTextStyles.label,
+                        ),
+                        Text(phone, style: AppTextStyles.value),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.s10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          StudentStrings.signInPin,
+                          style: AppTextStyles.label,
+                        ),
+                        Text(pin, style: AppTextStyles.value),
+                      ],
+                    ),
+                  ],
                   AppSpacing.gapVLg,
                   if (showActionButtons)
                     CustomButtonLayout(

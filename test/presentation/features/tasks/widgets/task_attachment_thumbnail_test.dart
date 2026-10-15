@@ -8,12 +8,12 @@
 // import 'package:wowcare/core/network/api_client.dart';
 // import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
 // import 'package:wowcare/presentation/features/tasks/widgets/task_attachment_thumbnail.dart';
-// import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+// import 'package:wowcare/shared/services/asset/asset_service.dart';
 //
 // /// The service is only consulted for attachments that need a URL resolved by
 // /// asset code. Every case here supplies its own URL (or none at all), so nothing
 // /// reaches the network.
-// final _service = ImageUploadService(ApiClient(baseUrl: 'http://localhost'));
+// final _service = AssetService(ApiClient(baseUrl: 'http://localhost'));
 //
 // Future<void> _pump(WidgetTester tester, TaskAttachment attachment) =>
 //     tester.pumpWidget(

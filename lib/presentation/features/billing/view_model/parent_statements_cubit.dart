@@ -2,11 +2,12 @@ import 'dart:typed_data';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/utils/file_utils/file_actions.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/billing_school_time.dart';
 
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
-import 'package:wowcare/data/services/file_download_service.dart';
 import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
 import 'package:wowcare/domain/features/billing/repositories/billing_statements_repository.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_billing_statements_usecase.dart';
@@ -22,15 +23,12 @@ class ParentStatementsCubit extends Cubit<ParentStatementsState> {
   ParentStatementsCubit({
     required GetBillingStatementsUseCase getStatements,
     required BillingStatementsRepository statementsRepository,
-    required FileDownloadService fileDownloadService,
   })  : _getStatements = getStatements,
         _repository = statementsRepository,
-        _fileDownloadService = fileDownloadService,
         super(const ParentStatementsState.initial());
 
   final GetBillingStatementsUseCase _getStatements;
   final BillingStatementsRepository _repository;
-  final FileDownloadService _fileDownloadService;
 
   static const int _pageSize = 10;
 
@@ -114,12 +112,7 @@ class ParentStatementsCubit extends Cubit<ParentStatementsState> {
       final bytes = await _repository.downloadStatement(statementCode: code);
 
       final fileName = 'statement-$code.pdf';
-      final savedPath = await _fileDownloadService.saveFile(
-        fileData: bytes,
-        fileName: fileName,
-        assetCode: code,
-        mimeType: 'application/pdf',
-      );
+      final savedPath = await FileUtils.saveToDocuments(bytes, fileName);
 
       if (isClosed) return null;
 
@@ -127,12 +120,7 @@ class ParentStatementsCubit extends Cubit<ParentStatementsState> {
         return 'Failed to save statement PDF.';
       }
 
-      await _fileDownloadService.openFile(
-        filePath: savedPath,
-        fileName: fileName,
-        assetCode: code,
-        mimeType: 'application/pdf',
-      );
+      await FileActions.open(savedPath, mimeType: 'application/pdf');
 
       return null;
     } catch (e) {

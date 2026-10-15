@@ -5,11 +5,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
-import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/utils/file_utils/file_actions.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:gal/gal.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -320,39 +318,19 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
 
       // Images/videos save to the device gallery (same as the photo activity).
       if (isImage || isVideo) {
-        if (!await Gal.hasAccess(toAlbum: true)) {
-          await Gal.requestAccess(toAlbum: true);
-        }
-        if (!await Gal.hasAccess(toAlbum: true)) {
-          if (!mounted) return;
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message:
-                'Photos permission is required to save the document to your gallery.',
-            isWarning: true,
-          );
-          return;
-        }
+        if (!await FileActions.ensureGalleryAccess()) return;
 
-        final tempDir = await getTemporaryDirectory();
-        var ext = p.extension(Uri.parse(url).path).trim().toLowerCase();
-        if (ext.isEmpty) ext = isVideo ? '.mp4' : '.jpg';
-        final stamp = AppTime.nowUtc().millisecondsSinceEpoch;
-        final base = doc.documentName.trim().isNotEmpty
-            ? doc.documentName.trim()
-            : 'wowcare_document_$stamp';
-        final safeBase = base.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
-        final outPath = p.join(tempDir.path, '$safeBase$ext');
+        final outPath = await FileUtils.tempPathForDownload(
+          url,
+          name: doc.documentName,
+          fallbackExtension: isVideo ? 'mp4' : 'jpg',
+        );
 
         // Plain-Dio download via the shared service: the URL is a pre-signed
         // external (CloudFront) link, so the app's auth header / API base URL
         // must NOT be attached, and the View must not construct a Dio itself.
         await _documentsListCubit.downloadFile(url, outPath);
-        if (isVideo) {
-          await Gal.putVideo(outPath);
-        } else {
-          await Gal.putImage(outPath);
-        }
+        await FileActions.saveToGallery(outPath, isVideo: isVideo);
         try {
           await File(outPath).delete();
         } catch (_) {}
@@ -377,11 +355,11 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
           isError: true,
         );
       }
-    } on GalException catch (e) {
+    } on GallerySaveException catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: e.type.message,
+        message: e.message,
         isError: true,
       );
     } catch (e) {

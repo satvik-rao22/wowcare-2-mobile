@@ -29,7 +29,7 @@ import 'package:wowcare/domain/features/tasks/usecases/update_task_usecase.dart'
 import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachments_usecase.dart';
 import 'package:wowcare/presentation/features/tasks/view_model/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_edit_scope_sheet.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_manager.dart';
 
@@ -115,7 +115,7 @@ TasksCubit _buildCubit(_FakeTaskRepository repo) => TasksCubit(
       UploadTaskAttachmentsUseCase(repo, _FakeUploadManager()),
       GetTaskAttachmentsUseCase(repo),
       DetachTaskAttachmentUseCase(repo),
-      ImageUploadService(ApiClient(baseUrl: 'http://localhost')),
+      AssetService(ApiClient(baseUrl: 'http://localhost')),
       GetAllStaffUseCase(_FakeStaffRepository()),
       _FakeStorage(),
       UpdateTaskAssignmentUseCase(repo),

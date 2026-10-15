@@ -5,7 +5,7 @@ import 'package:wowcare/core/network/file_download_service.dart';
 
 import '../../../../domain/features/staff/entities/staff_document.dart';
 import '../../../../domain/features/staff/usecases/load_cached_staff_documents_usecase.dart';
-import '../../../../shared/services/image_upload/image_upload_service.dart';
+import '../../../../shared/services/asset/asset_service.dart';
 import '../../../../domain/features/staff/usecases/get_staff_documents_usecase.dart';
 import '../../../../domain/features/staff/usecases/delete_staff_document_usecase.dart';
 
@@ -14,19 +14,19 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
     required GetStaffDocumentsUseCase getStaffDocumentsUseCase,
     required DeleteStaffDocumentUseCase deleteStaffDocumentUseCase,
     required LoadCachedStaffDocumentsUseCase loadCachedStaffDocumentsUseCase,
-    required ImageUploadService imageUploadService,
+    required AssetService assetService,
     FileDownloadService? fileDownloadService,
   }) : _getStaffDocumentsUseCase = getStaffDocumentsUseCase,
        _deleteStaffDocumentUseCase = deleteStaffDocumentUseCase,
        _loadCachedStaffDocumentsUseCase = loadCachedStaffDocumentsUseCase,
-       _imageUploadService = imageUploadService,
+       _assetService = assetService,
        _fileDownloadService = fileDownloadService ?? FileDownloadService(),
        super(const StaffDocumentsListState.initial());
 
   final GetStaffDocumentsUseCase _getStaffDocumentsUseCase;
   final DeleteStaffDocumentUseCase _deleteStaffDocumentUseCase;
   final LoadCachedStaffDocumentsUseCase _loadCachedStaffDocumentsUseCase;
-  final ImageUploadService _imageUploadService;
+  final AssetService _assetService;
   final FileDownloadService _fileDownloadService;
 
   /// Downloads a resolved document URL to [savePath]. Kept off the View (which
@@ -39,9 +39,9 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
   /// not a link — this resolves the downloadable URL from the asset code.
   ///
   /// Lives here rather than in the documents tab, which resolved it by reaching
-  /// for [ImageUploadService] out of the service locator.
+  /// for [AssetService] out of the service locator.
   Future<String> resolveMediaAssetUrl(String assetCode) async {
-    final url = await _imageUploadService.getMediaAssetUrlByCode(
+    final url = await _assetService.getMediaAssetUrlByCode(
       assetCode: assetCode,
     );
     return url.trim();

@@ -11,11 +11,11 @@
 //
 // import 'package:flutter/material.dart';
 // import 'package:wowcare/core/theme/app_colors.dart';
-// import 'package:wowcare/core/utils/file_picker_utils.dart';
+// import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 // import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
 // import 'package:wowcare/presentation/features/tasks/utils/task_attachment_utils.dart';
 // import 'package:wowcare/presentation/features/tasks/widgets/task_attachment_thumbnail.dart';
-// import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+// import 'package:wowcare/shared/services/asset/asset_service.dart';
 //
 // /// Form control for a task's attachments: the ones already on the server
 // /// ([existing]) plus any newly picked files ([pending]), each removable, with
@@ -43,7 +43,7 @@
 //   /// Locally picked files not yet uploaded.
 //   final List<PickedFile> pending;
 //
-//   final ImageUploadService uploadService;
+//   final AssetService uploadService;
 //
 //   final ValueChanged<List<PickedFile>> onPendingChanged;
 //   final ValueChanged<TaskAttachment> onExistingRemoved;
