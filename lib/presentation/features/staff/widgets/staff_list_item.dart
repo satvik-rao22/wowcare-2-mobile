@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 class StaffListItem extends StatelessWidget {
   const StaffListItem({
@@ -14,14 +15,6 @@ class StaffListItem extends StatelessWidget {
   final String role;
   final String roomName;
   final VoidCallback? onTap;
-
-  String _initials(String name) {
-    final parts = name.trim().split(RegExp(r"\s+"));
-    if (parts.isEmpty) return '';
-    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return (parts.first.substring(0, 1) + parts[1].substring(0, 1))
-        .toUpperCase();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,17 +32,7 @@ class StaffListItem extends StatelessWidget {
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: AppColors.fieldBackgroundColor,
-                child: Text(
-                  _initials(fullName),
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
+              ProfileAvatar(name: fullName, size: 48),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

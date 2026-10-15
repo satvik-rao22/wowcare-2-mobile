@@ -34,7 +34,7 @@ import 'package:wowcare/presentation/features/students/view_model/student_cubit.
 import 'package:wowcare/presentation/features/communication/view_model/communication_state.dart';
 import 'package:wowcare/data/features/communication/mappers/participant_mapper.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/messaging_shimmer.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/messaging_list_tile.dart';
 import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 import 'package:wowcare/shared/common/widgets/app_error_state.dart';
@@ -135,7 +135,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   /// would wrongly stop excluding anyone with an ACTIVE-status
   /// conversation from "Start New Chat" the moment that filter is picked.
   Future<void> _loadContactExclusionSet() async {
-    final result = await context.read<CommunicationCubit>()
+    final result = await context
+        .read<CommunicationCubit>()
         .fetchConversationsPage(type: _conversationType, size: 500);
     if (!mounted) return;
     result.fold((_) {}, (page) {
@@ -360,7 +361,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
       message: 'Creating conversation with $name…',
     );
 
-    final result = await context.read<CommunicationCubit>()
+    final result = await context
+        .read<CommunicationCubit>()
         .createOrOpenConversation(
           type: widget.isStaffMessaging
               ? ConversationType.staffDirect
@@ -835,7 +837,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                         sections: [
                                           FilerSection(
                                             label: 'Classroom',
-                                            hintText: AppStrings.selectClassroomHint,
+                                            hintText:
+                                                AppStrings.selectClassroomHint,
                                             items: classroomNames,
                                             initialSelected:
                                                 _contactFilter
@@ -846,7 +849,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                           ),
                                           FilerSection(
                                             label: 'Designation',
-                                            hintText: AppStrings.selectDesignationHint,
+                                            hintText: AppStrings
+                                                .selectDesignationHint,
                                             items:
                                                 _designationLabelToCode.keys
                                                     .toList()
@@ -860,7 +864,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                           ),
                                           FilerSection(
                                             label: 'Status',
-                                            hintText: AppStrings.selectStatusHint,
+                                            hintText:
+                                                AppStrings.selectStatusHint,
                                             items: const [
                                               'Active',
                                               'Upcoming',
@@ -930,7 +935,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                         sections: [
                                           FilerSection(
                                             label: 'Classroom',
-                                            hintText: AppStrings.selectClassroomHint,
+                                            hintText:
+                                                AppStrings.selectClassroomHint,
                                             items: classroomNames,
                                             initialSelected:
                                                 _contactFilter
@@ -941,7 +947,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                           ),
                                           FilerSection(
                                             label: 'Status',
-                                            hintText: AppStrings.selectStatusHint,
+                                            hintText:
+                                                AppStrings.selectStatusHint,
                                             items: const [
                                               'Active',
                                               'Upcoming',
@@ -1044,7 +1051,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                         width: 8,
                                         height: 8,
                                         decoration: const BoxDecoration(
-                                          color: AppColors.messagingNotificationDot,
+                                          color: AppColors
+                                              .messagingNotificationDot,
                                           shape: BoxShape.circle,
                                         ),
                                       ),
@@ -1407,7 +1415,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                       4,
                                     ),
                                     child: Text(
-                                      AppStrings.startNewChat(filteredContacts.length),
+                                      AppStrings.startNewChat(
+                                        filteredContacts.length,
+                                      ),
                                       style: AppTextStyles.size14.copyWith(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
@@ -1636,13 +1646,19 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                   : (widget.isStaffMessaging
                         ? AppStrings.emptyStaffConversations
                         : AppStrings.noConversationsYet),
-              style: AppTextStyles.size14.copyWith(fontSize: 15, color: AppColors.messagingIconMuted),
+              style: AppTextStyles.size14.copyWith(
+                fontSize: 15,
+                color: AppColors.messagingIconMuted,
+              ),
             ),
             if (!noMatches) ...[
               const SizedBox(height: 6),
               Text(
                 AppStrings.useThePlusButton,
-                style: AppTextStyles.size14.copyWith(fontSize: 13, color: AppColors.messagingIconMuted),
+                style: AppTextStyles.size14.copyWith(
+                  fontSize: 13,
+                  color: AppColors.messagingIconMuted,
+                ),
               ),
             ],
           ],
@@ -1745,26 +1761,31 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
           decoration: const BoxDecoration(
             color: AppColors.cardColor,
             border: Border(
-              bottom: BorderSide(color: AppColors.messagingDividerLight, width: 1),
+              bottom: BorderSide(
+                color: AppColors.messagingDividerLight,
+                width: 1,
+              ),
             ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: AppSizes.lg, vertical: AppSizes.xsPlus),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSizes.lg,
+            vertical: AppSizes.xsPlus,
+          ),
           child: Row(
             children: [
-              DocumentImageWidget(
-                disableAttendanceStatusLookup: true,
-                fileUuid: '',
+              ProfileAvatar(
+                name: contact.name,
+
                 // `avatarUrl` is either a resolved URL or a raw media-asset
                 // code depending on which list this contact came from.
                 imageUrl: (contact.avatarUrl ?? '').startsWith('http')
                     ? contact.avatarUrl
                     : null,
-                mediaAssetCode: (contact.avatarUrl ?? '').startsWith('http')
+                assetCode: (contact.avatarUrl ?? '').startsWith('http')
                     ? null
                     : contact.avatarUrl,
-                staffCode: widget.isStaffMessaging ? contact.code : null,
                 studentCode: widget.isStaffMessaging ? null : contact.code,
-                name: contact.name,
+                staffCode: widget.isStaffMessaging ? contact.code : null,
                 size: 44,
               ),
               const SizedBox(width: AppSizes.sm),
@@ -1781,7 +1802,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                     ),
                     if (isDisabled)
                       Text(
-                        contact.isInactive ? AppStrings.inactive : AppStrings.noParentLinked,
+                        contact.isInactive
+                            ? AppStrings.inactive
+                            : AppStrings.noParentLinked,
                         style: AppTextStyles.size14.copyWith(
                           fontSize: 12,
                           color: AppColors.messagingTextSecondary,

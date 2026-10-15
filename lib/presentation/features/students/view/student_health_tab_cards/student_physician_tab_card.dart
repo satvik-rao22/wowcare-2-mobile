@@ -12,7 +12,7 @@ import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
-import '../../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/presentation/features/students/view/add_physician_screen.dart';
 
 class StudentPhysicianTabCard extends StatefulWidget {
@@ -282,7 +282,7 @@ class _PhysicianCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  DocumentImageWidget(fileUuid: '', name: name, size: 45),
+                  ProfileAvatar(name: name, size: 45),
                   SizedBox(width: isTablet ? 16 : 9),
                   Flexible(
                     child: Text(

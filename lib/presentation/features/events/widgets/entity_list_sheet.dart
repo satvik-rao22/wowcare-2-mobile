@@ -3,6 +3,7 @@ import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// One row of [showEntityListSheet].
 class EntityListItem {
@@ -102,7 +103,9 @@ Future<void> showEntityListSheet(
                             ? (emptyHint ?? 'Nobody in this group yet.')
                             : 'No matches.',
                         style: TextStyle(
-                            fontSize: 13, color: AppPalette.textSecondary),
+                          fontSize: 13,
+                          color: AppPalette.textSecondary,
+                        ),
                       ),
                     )
                   else
@@ -116,20 +119,7 @@ Future<void> showEntityListSheet(
                           final item = visible[index];
                           return ListTile(
                             dense: true,
-                            leading: CircleAvatar(
-                              radius: 16,
-                              backgroundColor: color.withValues(alpha: 0.12),
-                              child: Text(
-                                item.name.isNotEmpty
-                                    ? item.name[0].toUpperCase()
-                                    : '?',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: color,
-                                ),
-                              ),
-                            ),
+                            leading: ProfileAvatar(name: item.name, size: 32),
                             title: Text(
                               item.name,
                               style: const TextStyle(fontSize: 13.5),
@@ -148,8 +138,9 @@ Future<void> showEntityListSheet(
                                       vertical: 3,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: EventUiUtils.rsvpColor(item.rsvp!)
-                                          .withValues(alpha: 0.1),
+                                      color: EventUiUtils.rsvpColor(
+                                        item.rsvp!,
+                                      ).withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Row(

@@ -28,7 +28,7 @@ import 'package:wowcare/presentation/features/students/model/student_sibling_inf
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 import 'package:wowcare/shared/common/widgets/profile_info_card.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_profile_details_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step3_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_tags_edit_sheet.dart';
@@ -586,11 +586,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                       child: Row(
                         children: [
-                          DocumentImageWidget(
-                            fileUuid: '',
-                            name: name,
-                            size: 45,
-                          ),
+                          ProfileAvatar(name: name, size: 45),
                           AppSpacing.gapHSm,
                           Text(
                             name,

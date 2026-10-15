@@ -13,7 +13,7 @@ import 'package:wowcare/presentation/features/communication/model/thread_info.da
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/app/di/messaging_resolvers.dart';
@@ -114,7 +114,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
 
   /// `staffInfo.avatar` is either a resolved URL or a raw media-asset
   /// code depending on which screen started the conversation — `fileUuid`
-  /// on [DocumentImageWidget] is never actually used to resolve an image
+  /// on [ProfileAvatar] is never actually used to resolve an image
   /// (only `imageUrl`/`mediaAssetCode` are), so route to whichever one
   /// matches the value's shape instead.
   String get _rawStaffAvatar => widget.staffInfo.avatar.trim();
@@ -545,7 +545,10 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              CustomTextWidget(text: 'Edit message', fontWeight: FontWeight.w600),
+              CustomTextWidget(
+                text: 'Edit message',
+                fontWeight: FontWeight.w600,
+              ),
               IconButton(
                 onPressed: () => Navigator.pop(dialogContext),
                 icon: Icon(Icons.clear, color: AppColors.primaryColor),
@@ -567,8 +570,14 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
               border: AppSurfaces.fieldBorder(radius: 12),
               enabledBorder: AppSurfaces.fieldBorder(radius: 12),
               focusedBorder: AppSurfaces.fieldBorder(radius: 12),
-              errorBorder: AppSurfaces.fieldBorder(radius: 12, colour: AppPalette.statusError),
-              focusedErrorBorder: AppSurfaces.fieldBorder(radius: 12, colour: AppPalette.statusError),
+              errorBorder: AppSurfaces.fieldBorder(
+                radius: 12,
+                colour: AppPalette.statusError,
+              ),
+              focusedErrorBorder: AppSurfaces.fieldBorder(
+                radius: 12,
+                colour: AppPalette.statusError,
+              ),
               //border: AppSurfaces.fieldBorder(radius: 12),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: AppSizes.md,
@@ -1425,12 +1434,10 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
             const SizedBox(width: AppSizes.sm),
             Stack(
               children: [
-                DocumentImageWidget(
-                  disableAttendanceStatusLookup: true,
-                  fileUuid: '',
-                  imageUrl: _staffAvatarAsImageUrl,
-                  mediaAssetCode: _staffAvatarAsMediaAssetCode,
+                ProfileAvatar(
                   name: widget.staffInfo.name,
+                  imageUrl: _staffAvatarAsImageUrl,
+                  assetCode: _staffAvatarAsMediaAssetCode,
                   size: 45,
                 ),
                 Positioned(

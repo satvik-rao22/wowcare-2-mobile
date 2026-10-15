@@ -3,7 +3,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
 import 'custom_checkbox.dart';
-import 'profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 class StudentTile extends StatelessWidget {
   const StudentTile({
@@ -43,7 +43,7 @@ class StudentTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            DocumentImageWidget(fileUuid: '', name: name, size: 35),
+            ProfileAvatar(name: name, size: 35),
             const SizedBox(width: 4),
             Expanded(
               child: Text(

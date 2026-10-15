@@ -24,7 +24,10 @@ class _StaffDirectoryTile extends StatelessWidget {
         decoration: const BoxDecoration(
           color: AppColors.messagingTileBg,
           border: Border(
-            bottom: BorderSide(color: AppColors.messagingDividerLight, width: 1),
+            bottom: BorderSide(
+              color: AppColors.messagingDividerLight,
+              width: 1,
+            ),
           ),
         ),
         child: ListTile(
@@ -32,11 +35,9 @@ class _StaffDirectoryTile extends StatelessWidget {
             horizontal: AppSizes.lg,
             vertical: AppSizes.xsPlus,
           ),
-          leading: DocumentImageWidget(
-            disableAttendanceStatusLookup: true,
-            fileUuid: '',
-            mediaAssetCode: staff.avatarAssetCode,
+          leading: ProfileAvatar(
             name: staff.name,
+            assetCode: staff.avatarAssetCode,
             size: 46,
           ),
           title: CustomTextWidget(
@@ -47,7 +48,10 @@ class _StaffDirectoryTile extends StatelessWidget {
           ),
           subtitle: Text(
             staff.designation.isNotEmpty ? staff.designation : staff.status,
-            style: AppTextStyles.size14.copyWith(fontSize: 12, color: AppColors.messagingTextSecondary),
+            style: AppTextStyles.size14.copyWith(
+              fontSize: 12,
+              color: AppColors.messagingTextSecondary,
+            ),
           ),
           trailing: isCreating
               ? const PrimaryCircularLoader(size: 20, strokeWidth: 2)
@@ -57,7 +61,9 @@ class _StaffDirectoryTile extends StatelessWidget {
                     vertical: AppSizes.xxs,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.messagingAccentPurple.withValues(alpha: 0.08),
+                    color: AppColors.messagingAccentPurple.withValues(
+                      alpha: 0.08,
+                    ),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -102,7 +108,10 @@ class _ConversationTileContent extends StatelessWidget {
         decoration: const BoxDecoration(
           color: AppColors.cardColor,
           border: Border(
-            bottom: BorderSide(color: AppColors.messagingDividerLight, width: 1),
+            bottom: BorderSide(
+              color: AppColors.messagingDividerLight,
+              width: 1,
+            ),
           ),
         ),
         child: ListTile(
@@ -112,19 +121,18 @@ class _ConversationTileContent extends StatelessWidget {
           ),
           leading: Stack(
             children: [
-              DocumentImageWidget(
-                disableAttendanceStatusLookup: true,
-                fileUuid: '',
+              ProfileAvatar(
+                name: displayName,
+
                 // `avatar` is either a resolved URL or a raw media-asset code depending on which
                 // screen created the conversation — route to whichever matches the value's shape.
                 // Also pass studentCode so a student-scoped (room/admin) chat can resolve the
                 // student's photo via the profile-lookup endpoint when no URL/asset is stored.
                 imageUrl: avatar.startsWith('http') ? avatar : null,
-                mediaAssetCode: avatar.startsWith('http')
+                assetCode: avatar.startsWith('http')
                     ? null
                     : (avatar.isNotEmpty ? avatar : null),
                 studentCode: conversation.studentCode,
-                name: displayName,
                 size: 52,
               ),
               if (conversation.status == 'ACTIVE')
@@ -137,7 +145,10 @@ class _ConversationTileContent extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: AppColors.messagingOnlineDot,
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.cardColor, width: 2.5),
+                      border: Border.all(
+                        color: AppColors.cardColor,
+                        width: 2.5,
+                      ),
                     ),
                   ),
                 ),
@@ -226,7 +237,9 @@ class _ConversationTileContent extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.messagingUnreadBadge.withValues(alpha: 0.35),
+                          color: AppColors.messagingUnreadBadge.withValues(
+                            alpha: 0.35,
+                          ),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),

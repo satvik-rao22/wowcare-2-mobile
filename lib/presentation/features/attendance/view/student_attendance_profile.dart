@@ -10,7 +10,8 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_profile_field.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_profile_stat_widgets.dart';
@@ -704,13 +705,16 @@ class _StudentCard extends StatelessWidget {
             Row(
               children: [
                 const SizedBox(width: AppSpacing.s5),
-                DocumentImageWidget(
-                  fileUuid: currentStudent.photoUuid ?? '',
-                  size: 80,
+                ProfileAvatar(
                   name: currentStudent.name,
-                  fontSize: 24,
+
                   // Drive status dot purely from attendance API using studentCode.
                   studentCode: activeStudentCode,
+                  size: 80,
+                  fontSize: 24,
+                  statusDot: AttendanceStatusDot(
+                    studentCode: activeStudentCode,
+                  ),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(

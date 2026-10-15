@@ -6,7 +6,7 @@ import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/participant_avatar_source.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// Reusable horizontal scrollable participant chips component.
 ///
@@ -73,14 +73,12 @@ class ParticipantChips extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                DocumentImageWidget(
-                  disableAttendanceStatusLookup: true,
-                  fileUuid: '',
+                ProfileAvatar(
+                  name: name,
                   imageUrl: avatar.imageUrl,
-                  mediaAssetCode: avatar.mediaAssetCode,
+                  assetCode: avatar.mediaAssetCode,
                   staffCode: avatar.staffCode,
                   userCode: avatar.userCode,
-                  name: name,
                   size: 16,
                   fontSize: 9,
                 ),

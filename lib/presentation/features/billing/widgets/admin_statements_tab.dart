@@ -16,7 +16,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 
 class AdminStatementsTab extends StatefulWidget {
@@ -186,7 +186,9 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: SnackBar(
-          content: Text(result.error ?? BillingStrings.unableToPreviewThisStatement),
+          content: Text(
+            result.error ?? BillingStrings.unableToPreviewThisStatement,
+          ),
           backgroundColor: AppColors.billingErrorTextColor,
         ),
       );
@@ -239,7 +241,7 @@ class _FamilySiblingsCard extends StatelessWidget {
             final room = (child.room ?? child.roomName ?? '').toString();
             return Row(
               children: [
-                DocumentImageWidget(fileUuid: '', name: name, size: 50),
+                ProfileAvatar(name: name, size: 50),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -358,11 +360,7 @@ class _AdminStatementCard extends StatelessWidget {
     final statementDate = statement.generatedAt;
 
     return StaffStyleCard(
-      leading: DocumentImageWidget(
-        fileUuid: '',
-        name: _formattedType,
-        size: 50,
-      ),
+      leading: ProfileAvatar(name: _formattedType, size: 50),
       header: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [

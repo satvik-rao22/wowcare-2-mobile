@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 // this file keep resolving it unchanged.
 export 'package:wowcare/domain/features/scheduling/entities/scheduling_block_status_kind.dart';
 
-
 /// Ratio outcome for a classroom on a given day.
 enum ClassroomRatioStatus { inRatio, underRatio, overRatio }
 
@@ -130,7 +129,7 @@ class StaffScheduleEntry {
 
   final String? photoUrl;
 
-  /// Staff profile asset code for [DocumentImageWidget].
+  /// Staff profile asset code for [ProfileAvatar].
   final String? profilePhotoAssetCode;
 
   /// Staff row: work/break colours across the full school-day window.

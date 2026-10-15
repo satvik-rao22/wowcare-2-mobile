@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/presentation/features/communication/model/thread_info.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 class MessagingHeader extends StatelessWidget {
   final StaffThreadInfo staffInfo;
@@ -14,7 +14,9 @@ class MessagingHeader extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.transparentColor,
-        border: Border(bottom: BorderSide(color: AppColors.messagingBorderSubtle, width: 1)),
+        border: Border(
+          bottom: BorderSide(color: AppColors.messagingBorderSubtle, width: 1),
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),
@@ -23,23 +25,18 @@ class MessagingHeader extends StatelessWidget {
           children: [
             Stack(
               children: [
-                DocumentImageWidget(
-                  disableAttendanceStatusLookup: true,
-                  fileUuid: '',
-                  imageUrl:
-                      staffInfo.avatar.startsWith('http')
+                ProfileAvatar(
+                  name: staffInfo.name,
+                  imageUrl: staffInfo.avatar.startsWith('http')
                       ? staffInfo.avatar
                       : null,
-                  mediaAssetCode:
+                  assetCode:
                       staffInfo.avatar.isNotEmpty &&
-                          !staffInfo.avatar.startsWith(
-                            'http',
-                          )
+                          !staffInfo.avatar.startsWith('http')
                       ? staffInfo.avatar
                       : null,
                   staffCode: staffInfo.staffCode,
                   userCode: staffInfo.staffUserCode,
-                  name: staffInfo.name,
                   size: 45,
                 ),
                 Positioned(

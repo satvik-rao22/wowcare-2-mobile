@@ -4,6 +4,7 @@ import '../../core/theme/av2_spacing.dart';
 import '../../core/theme/av2_text_styles.dart';
 import '../../domain/entities/staff_overtime_profile.dart';
 import 'av2_pill.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// Avatar + name + designation·classroom + today-status pill. Used in the
 /// detail header (mobile) and beside the date controls (desktop).
@@ -45,8 +46,11 @@ class Av2IdentityRow extends StatelessWidget {
                   ),
                   if (onTap != null) ...[
                     const SizedBox(width: 4),
-                    const Icon(Icons.keyboard_arrow_down,
-                        size: 22, color: Av2Colors.textSecondary),
+                    const Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 22,
+                      color: Av2Colors.textSecondary,
+                    ),
                   ],
                 ],
               ),
@@ -72,32 +76,21 @@ class Av2IdentityRow extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
         child: Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 4, vertical: Av2Spacing.xs),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 4,
+            vertical: Av2Spacing.xs,
+          ),
           child: row,
         ),
       ),
     );
   }
 
-  Widget _avatar() {
-    return Container(
-      width: avatarSize,
-      height: avatarSize,
-      alignment: Alignment.center,
-      decoration: const BoxDecoration(
-        color: Av2Colors.avatarBg,
-        shape: BoxShape.circle,
-      ),
-      child: Text(
-        profile.initials,
-        style: Av2Text.bodyMedium.copyWith(
-          color: Av2Colors.avatarText,
-          fontSize: avatarSize * 0.36,
-        ),
-      ),
-    );
-  }
+  Widget _avatar() => ProfileAvatar(
+    name: profile.staffName,
+    staffCode: profile.staffCode,
+    size: avatarSize,
+  );
 
   Widget _statusPill() {
     switch (profile.todayStatus) {

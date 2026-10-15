@@ -28,7 +28,7 @@ class StaffThreadInfo {
   final String code;
 
   /// The counterpart staff member's own account code (`USR_*`) — lets the
-  /// header resolve a photo via [DocumentImageWidget]'s userCode fallback
+  /// header resolve a photo via [ProfileAvatar]'s userCode fallback
   /// when [avatar] itself is empty (the conversation payload doesn't always
   /// carry a resolved photo/media-asset-code for staff).
   final String? staffUserCode;
@@ -36,7 +36,7 @@ class StaffThreadInfo {
   /// The counterpart's staff code (`STF_*`), when the caller already has it
   /// (e.g. opened from a classroom roster, which always knows the staff
   /// code directly). Preferred over [staffUserCode] by
-  /// [DocumentImageWidget] — a direct staffCode lookup is the same
+  /// [ProfileAvatar] — a direct staffCode lookup is the same
   /// mechanism that reliably resolves the photo everywhere else the staff
   /// list itself renders it, whereas the userCode fallback needs an extra
   /// userCode→staffCode resolution step that isn't always available or

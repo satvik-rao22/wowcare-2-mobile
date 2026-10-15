@@ -10,7 +10,7 @@ import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.d
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/view_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/view_receipt_screen.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/core/utils/date_utils.dart';
 import 'package:wowcare/core/utils/billing_school_time.dart';
 
@@ -110,8 +110,9 @@ class ParentTransactionCard extends StatelessWidget {
       // correctly moments earlier.
       studentName: _displayName,
       classroom: '',
-      studentCode:
-          transaction.studentCode.isNotEmpty ? transaction.studentCode : null,
+      studentCode: transaction.studentCode.isNotEmpty
+          ? transaction.studentCode
+          : null,
       paidAmount: transaction.paidAmount,
       refundedAmount: transaction.refundedAmount,
       invoiceCode: transaction.invoiceCode,
@@ -128,68 +129,76 @@ class ParentTransactionCard extends StatelessWidget {
     final expanded = <Widget>[];
     if (transaction.method.isNotEmpty && _type != 'invoice') {
       expanded
-        ..add(StaffCardDetailRow(
-          label: BillingStrings.paymentMethod,
-          value: transaction.method,
-        ))
+        ..add(
+          StaffCardDetailRow(
+            label: BillingStrings.paymentMethod,
+            value: transaction.method,
+          ),
+        )
         ..add(const SizedBox(height: 10));
     }
-    expanded.add(StaffCardDetailRow(
-      label: BillingStrings.status,
-      value: _formatStatus(transaction.status),
-    ));
+    expanded.add(
+      StaffCardDetailRow(
+        label: BillingStrings.status,
+        value: _formatStatus(transaction.status),
+      ),
+    );
     expanded.add(const SizedBox(height: 10));
     if (transaction.description.isNotEmpty) {
-      expanded.add(StaffCardDetailRow(
-        label: BillingStrings.description,
-        value: transaction.description,
-      ));
+      expanded.add(
+        StaffCardDetailRow(
+          label: BillingStrings.description,
+          value: transaction.description,
+        ),
+      );
       expanded.add(const SizedBox(height: 10));
     }
     if (transaction.items.isNotEmpty) {
-      expanded.add(StaffCardDetailRow(
-        label: BillingStrings.items,
-        value: transaction.items.join(', '),
-      ));
+      expanded.add(
+        StaffCardDetailRow(
+          label: BillingStrings.items,
+          value: transaction.items.join(', '),
+        ),
+      );
       expanded.add(const SizedBox(height: 10));
     }
-    expanded.add(StaffCardDetailRow(
-      label: BillingStrings.amount,
-      value: '\$${transaction.amount.toStringAsFixed(2)}',
-    ));
+    expanded.add(
+      StaffCardDetailRow(
+        label: BillingStrings.amount,
+        value: '\$${transaction.amount.toStringAsFixed(2)}',
+      ),
+    );
     if (_type == 'payment') {
       expanded
         ..add(const SizedBox(height: 16))
-        ..add(StaffCardActions(
-          primaryLabel: BillingStrings.viewReceipt,
-          onPrimary: () => context.push(
-            ViewReceiptScreen.routeName,
-            extra: ViewReceiptArgs(
-              transaction: _toTransactionItem(),
-              viewType: 'receipt',
+        ..add(
+          StaffCardActions(
+            primaryLabel: BillingStrings.viewReceipt,
+            onPrimary: () => context.push(
+              ViewReceiptScreen.routeName,
+              extra: ViewReceiptArgs(
+                transaction: _toTransactionItem(),
+                viewType: 'receipt',
+              ),
             ),
           ),
-        ));
+        );
     } else if (_type == 'invoice') {
       expanded
         ..add(const SizedBox(height: 16))
-        ..add(StaffCardActions(
-          primaryLabel: BillingStrings.viewInvoice,
-          onPrimary: () => context.push(
-            ViewInvoiceScreen.routeName,
-            extra: ViewInvoiceArgs(
-              transaction: _toTransactionItem(),
+        ..add(
+          StaffCardActions(
+            primaryLabel: BillingStrings.viewInvoice,
+            onPrimary: () => context.push(
+              ViewInvoiceScreen.routeName,
+              extra: ViewInvoiceArgs(transaction: _toTransactionItem()),
             ),
           ),
-        ));
+        );
     }
 
     return StaffStyleCard(
-      leading: DocumentImageWidget(
-        fileUuid: '',
-        name: _displayName,
-        size: 50,
-      ),
+      leading: ProfileAvatar(name: _displayName, size: 50),
       header: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -220,8 +229,9 @@ class ParentTransactionCard extends StatelessWidget {
             children: [
               Text(
                 '\$${transaction.amount.toStringAsFixed(2)}',
-                style: BillingCardText.name(isTablet)
-                    .copyWith(fontWeight: FontWeight.w700),
+                style: BillingCardText.name(
+                  isTablet,
+                ).copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 4),
               Text(
@@ -262,23 +272,20 @@ class ParentStatementCard extends StatelessWidget {
     this.onView,
   });
 
-  String get _title => studentNames.isNotEmpty ? studentNames : BillingStrings.statement;
+  String get _title =>
+      studentNames.isNotEmpty ? studentNames : BillingStrings.statement;
 
   String get _formattedType => statement.statementType.isEmpty
       ? '—'
       : statement.statementType[0].toUpperCase() +
-          statement.statementType.substring(1).toLowerCase();
+            statement.statementType.substring(1).toLowerCase();
 
   @override
   Widget build(BuildContext context) {
     final isTablet = ResponsiveHelper(context).isTabletCompact;
     final generatedAt = statement.generatedAt;
     return StaffStyleCard(
-      leading: DocumentImageWidget(
-        fileUuid: '',
-        name: _title,
-        size: 50,
-      ),
+      leading: ProfileAvatar(name: _title, size: 50),
       header: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -320,9 +327,13 @@ class ParentStatementCard extends StatelessWidget {
           // Both actions share the same fetch-in-flight flag, so the label
           // stays generic rather than claiming "Downloading…" while a View
           // fetch is actually what's in flight.
-          secondaryLabel: isDownloading ? BillingStrings.loading : BillingStrings.view,
+          secondaryLabel: isDownloading
+              ? BillingStrings.loading
+              : BillingStrings.view,
           onSecondary: isDownloading ? null : onView,
-          primaryLabel: isDownloading ? BillingStrings.loading : BillingStrings.download,
+          primaryLabel: isDownloading
+              ? BillingStrings.loading
+              : BillingStrings.download,
           onPrimary: isDownloading ? null : onDownload,
         ),
       ],

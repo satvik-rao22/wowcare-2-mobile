@@ -18,7 +18,9 @@ import 'package:wowcare/domain/features/newsletter/services/newsletter_thumbnail
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/shared/common/widgets/app_image/app_image.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 class StudentNewslettersCard extends StatefulWidget {
   const StudentNewslettersCard({super.key});
@@ -251,31 +253,35 @@ class _NewsletterThumbnail extends StatelessWidget {
     // cover asset, an image attachment, or an image embedded in the body —
     // and only fall back to the bundled default thumbnail when none exists.
     final thumbnail = resolveNewsletterThumbnail(newsletter);
-    final String? assetCode = thumbnail.assetCode.isNotEmpty
-        ? thumbnail.assetCode
-        : null;
-    final String? directUrl = thumbnail.directUrl.isNotEmpty
-        ? thumbnail.directUrl
-        : null;
+    const fallback = AppImage(
+      source: MediaRes.deafultNewsletterImage,
+      width: 75,
+      height: 75,
+      fit: BoxFit.cover,
+    );
+    Widget image(String url) => AppImage(
+      source: url,
+      width: 75,
+      height: 75,
+      fit: BoxFit.cover,
+      placeholder: fallback,
+      errorWidget: fallback,
+    );
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
-      child: SizedBox(
-        width: 75,
-        height: 75,
-        child: DocumentImageWidget(
-          fileUuid: '',
-          imageUrl: directUrl,
-          mediaAssetCode: assetCode,
-          name: '',
-          size: 75,
-          fontSize: 0,
-          fit: BoxFit.cover,
-          shape: BoxShape.rectangle,
-          placeholderAsset: MediaRes.deafultNewsletterImage,
-          disableProfileLookupFallback: true,
-          disableAttendanceStatusLookup: true,
-        ),
-      ),
+      child: thumbnail.directUrl.isNotEmpty
+          ? image(thumbnail.directUrl)
+          : thumbnail.assetCode.isEmpty
+          ? fallback
+          : FutureBuilder<String>(
+              future: serviceLocator<AssetService>().getMediaAssetUrlByCode(
+                assetCode: thumbnail.assetCode,
+              ),
+              builder: (context, snapshot) {
+                final url = snapshot.data ?? '';
+                return url.isEmpty ? fallback : image(url);
+              },
+            ),
     );
   }
 }

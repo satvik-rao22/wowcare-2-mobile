@@ -11,7 +11,8 @@ import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
 import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
@@ -255,15 +256,17 @@ class _StaffCardState extends State<StaffCard> {
                                   borderColor: null,
                                   label: null,
                                 ),
-                              DocumentImageWidget(
-                                fileUuid: widget.staffCode,
-                                imageUrl: widget.avatarUrl,
-                                mediaAssetCode: widget.profilePhotoAssetCode,
+                              ProfileAvatar(
                                 name: widget.name,
+                                imageUrl: widget.avatarUrl,
+                                assetCode: widget.profilePhotoAssetCode,
                                 staffCode: widget.staffCode,
-                                staffEmploymentStatus: widget.status,
-                                disableProfileLookupFallback: true,
+                                lookUpProfilePhoto: false,
                                 size: 50,
+                                statusDot: AttendanceStatusDot(
+                                  staffCode: widget.staffCode,
+                                  profileStatus: widget.status,
+                                ),
                               ),
                               SizedBox(width: isTablet ? 16 : 9),
                               Expanded(
@@ -714,7 +717,10 @@ class _StaffCardState extends State<StaffCard> {
                                       Expanded(
                                         child: Container(
                                           height: 40,
-                                          decoration: AppSurfaces.key(KeyVariant.primary, radius: 8,),
+                                          decoration: AppSurfaces.key(
+                                            KeyVariant.primary,
+                                            radius: 8,
+                                          ),
                                           child: TextButton(
                                             onPressed: () {
                                               // Invoke external handler if provided

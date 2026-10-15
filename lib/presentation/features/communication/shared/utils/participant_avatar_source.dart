@@ -1,11 +1,11 @@
 /// Works out which identity props a messaging avatar should hand
-/// `DocumentImageWidget` so it can resolve a real profile photo.
+/// `ProfileAvatar` so it can resolve a real profile photo.
 ///
 /// The conversation participant payload carries neither `avatarUrl` nor
 /// `staffCode` for most people (see `ParticipantEntityDto` — both are parsed
 /// defensively but "not currently sent by the backend"), so every messaging
 /// surface that only forwarded those two fields fell back to initials. The
-/// account code (`USR_*`) is always present, and `DocumentImageWidget` can map
+/// account code (`USR_*`) is always present, and `ProfileAvatar` can map
 /// it to a `STF_*` code and resolve the photo from there — the same path the
 /// staff-messaging inbox rows already use.
 ///

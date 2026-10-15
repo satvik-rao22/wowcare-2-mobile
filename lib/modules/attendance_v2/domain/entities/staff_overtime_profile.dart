@@ -63,15 +63,6 @@ class StaffOvertimeProfile {
   /// convert an admin's wall-clock edit to a UTC instant.
   final String timeZone;
 
-  /// Initials for the avatar, e.g. "Devi Vempati" -> "DV".
-  String get initials {
-    final parts = staffName.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty || parts.first.isEmpty) return '?';
-    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
-        .toUpperCase();
-  }
-
   int get needsAttentionCount => days.where((d) => d.needsAttention).length;
 
   StaffOvertimeProfile copyWith({List<AttendanceDay>? days}) {

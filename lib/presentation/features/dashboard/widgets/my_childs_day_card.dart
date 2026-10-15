@@ -18,7 +18,7 @@ import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_h
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_collapsible.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/qr_scan_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
@@ -1624,13 +1624,11 @@ class _MyChildsDayChatPreviewRowState
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          DocumentImageWidget(
-            fileUuid: avatarUrl,
+          ProfileAvatar(
             name: displayTitle,
+            lookUpProfilePhoto: false,
             size: 50,
             fontSize: 20,
-            disableProfileLookupFallback: true,
-            disableAttendanceStatusLookup: true,
           ),
           const SizedBox(width: 16),
           Expanded(

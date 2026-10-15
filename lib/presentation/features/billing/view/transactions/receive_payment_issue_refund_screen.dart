@@ -12,6 +12,7 @@ import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 class ReceivePaymentIssueRefundScreen extends StatefulWidget {
   const ReceivePaymentIssueRefundScreen({
@@ -552,7 +553,11 @@ class _ReceivePaymentIssueRefundScreenState
         children: <Widget>[
           Row(
             children: <Widget>[
-              _avatar(student.name),
+              ProfileAvatar(
+                name: student.name,
+                studentCode: student.code,
+                size: 50,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -603,28 +608,6 @@ class _ReceivePaymentIssueRefundScreenState
               ),
             ),
         ],
-      ),
-    );
-  }
-
-  /// Initials avatar (matches the staff-card 50px size) for a sibling row.
-  Widget _avatar(String name) {
-    const List<Color> palette = AppColors.billingAvatarPalette;
-    final Color color = palette[name.hashCode.abs() % palette.length];
-    return Container(
-      width: 50,
-      height: 50,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      child: Center(
-        child: Text(
-          _initials(name),
-          style: const TextStyle(
-            color: AppColors.billingCardOnColorText,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            fontFamily: AppFonts.body,
-          ),
-        ),
       ),
     );
   }
@@ -878,24 +861,10 @@ class _ReceivePaymentIssueRefundScreenState
       children: <Widget>[
         Row(
           children: <Widget>[
-            Container(
-              width: 50,
-              height: 50,
-              decoration: const BoxDecoration(
-                color: AppColors.billingUserAvatarBackground,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  _getUserInitials(),
-                  style: const TextStyle(
-                    color: AppColors.billingCardOnColorText,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: AppFonts.body,
-                  ),
-                ),
-              ),
+            ProfileAvatar(
+              name: widget.transaction.studentName,
+              studentCode: widget.studentCode,
+              size: 50,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -946,23 +915,5 @@ class _ReceivePaymentIssueRefundScreenState
         SkeuKeyBox(variant: KeyVariant.primary, height: 1.5),
       ],
     );
-  }
-
-  String _getUserInitials() => _initials(widget.transaction.studentName);
-
-  String _initials(String rawName) {
-    final String name = rawName.trim();
-    if (name.isEmpty) return 'NA';
-    final List<String> parts = name.split(' ');
-    if (parts.length >= 2) {
-      final String first = parts[0].isNotEmpty ? parts[0][0] : '';
-      final String second = parts.length > 1 && parts[1].isNotEmpty
-          ? parts[1][0]
-          : '';
-      return (first + second).toUpperCase();
-    } else if (parts.length == 1 && parts[0].isNotEmpty) {
-      return parts[0][0].toUpperCase();
-    }
-    return 'NA';
   }
 }

@@ -5,14 +5,12 @@ import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/profile_menu_header_cubit.dart';
 
 class ProfileMenuHeader extends StatelessWidget {
-  const ProfileMenuHeader({
-    super.key,
-    this.isParentPersona = false,
-  });
+  const ProfileMenuHeader({super.key, this.isParentPersona = false});
 
   final bool isParentPersona;
 
@@ -49,19 +47,22 @@ class ProfileMenuHeader extends StatelessWidget {
           children: [
             GestureDetector(
               onTap: () => _pickProfileImage(context),
-              child: DocumentImageWidget(
-                fileUuid:
-                    state.displayName.isNotEmpty ? state.displayName : 'User',
+              child: ProfileAvatar(
+                name: state.displayName.isNotEmpty ? state.displayName : 'User',
                 imageUrl: state.guardianPhotoUrl.isNotEmpty
                     ? state.guardianPhotoUrl
                     : null,
-                mediaAssetCode: state.guardianAssetCode.isNotEmpty
+                assetCode: state.guardianAssetCode.isNotEmpty
                     ? state.guardianAssetCode
                     : null,
                 staffCode: state.staffCode.isNotEmpty ? state.staffCode : null,
-                name: state.displayName.isNotEmpty ? state.displayName : 'User',
                 size: 48,
                 fontSize: 18,
+                statusDot: AttendanceStatusDot(
+                  staffCode: state.staffCode.isNotEmpty
+                      ? state.staffCode
+                      : null,
+                ),
               ),
             ),
             const SizedBox(width: 12),

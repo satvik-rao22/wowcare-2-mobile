@@ -6,7 +6,7 @@ import 'package:wowcare/core/utils/billing_money.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/bool_toggle_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_student_vertical_popup.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
@@ -222,21 +222,11 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                     ),
                                     SizedBox(width: isTablet ? 16 : 9),
                                   ],
-                                  DocumentImageWidget(
-                                    fileUuid: widget.fileUuid ?? '',
-                                    studentCode: widget.studentCode,
-                                    mediaAssetCode: widget.mediaAssetCode,
+                                  ProfileAvatar(
                                     name: widget.name,
+                                    assetCode: widget.mediaAssetCode,
+                                    studentCode: widget.studentCode,
                                     size: 50,
-                                    shape: BoxShape.circle,
-                                    fit: BoxFit.cover,
-                                    // studentCode is only ever passed to resolve
-                                    // a photo (single-child families) — no
-                                    // status dot here regardless, since dots are
-                                    // reserved for attendance (present/absent)
-                                    // as elsewhere in the app, and a family row
-                                    // has no single attendance status.
-                                    disableAttendanceStatusLookup: true,
                                   ),
                                   SizedBox(width: isTablet ? 16 : 9),
                                   Expanded(
@@ -385,7 +375,9 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                     _buildDetailRow(
                                       label: BillingStrings.lastInvoice,
                                       value: hasInvoice
-                                          ? billingAmount(widget.lastInvoiceAmount)
+                                          ? billingAmount(
+                                              widget.lastInvoiceAmount,
+                                            )
                                           : BillingStrings.noInvoice,
                                       note: hasInvoice
                                           ? 'SENT: ${widget.lastInvoiceSent}   DUE: ${widget.lastInvoiceDue}'

@@ -24,7 +24,8 @@ import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_student_selection_cubit.dart';
 
@@ -577,14 +578,18 @@ class _ActivityStudentListItem extends StatelessWidget {
                   onChanged: onSelectionChanged,
                 ),
               ),
-              DocumentImageWidget(
-                fileUuid: '',
+              ProfileAvatar(
                 name: name,
                 studentCode: (studentCode ?? '').trim().isEmpty
                     ? null
                     : studentCode!.trim(),
                 size: 32,
                 fontSize: 14,
+                statusDot: AttendanceStatusDot(
+                  studentCode: (studentCode ?? '').trim().isEmpty
+                      ? null
+                      : studentCode!.trim(),
+                ),
               ),
               if (isNapping) ...[
                 const SizedBox(width: 4),

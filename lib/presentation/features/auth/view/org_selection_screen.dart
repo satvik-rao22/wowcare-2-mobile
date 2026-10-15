@@ -5,12 +5,12 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
-import 'package:wowcare/core/extensions/string_ext.dart';
+import 'package:wowcare/core/utils/app_string_extension.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/src/app_router.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 
@@ -51,9 +51,7 @@ class _OrganizationSelectionScreenState
     // untrimmed .toSet() would treat "ORG123" and "ORG123 " as two different
     // organizations, showing the same org twice in the picker with the same
     // resolved name.
-    final orgCodes = (authCubit.state as AuthLoaded)
-        .loginResponse
-        .roles
+    final orgCodes = (authCubit.state as AuthLoaded).loginResponse.roles
         .map((r) => r.organizationCode.trim())
         .where((c) => c.isNotEmpty)
         .toSet()
@@ -106,8 +104,7 @@ class _OrganizationSelectionScreenState
           final userName = login.displayName.isNotEmpty
               ? login.displayName
               : login.email;
-          final rawRole =
-              login.roles.isNotEmpty ? login.roles.first.role : '';
+          final rawRole = login.roles.isNotEmpty ? login.roles.first.role : '';
           final userRole = rawRole.toDisplayRole;
 
           // Always use roles for org codes; org names from API (no cache).
@@ -121,18 +118,24 @@ class _OrganizationSelectionScreenState
               .toSet()
               .toList();
           final orgNames = state.orgNames;
-          final orgDisplayItems = (orgNames.length == orgCodes.length &&
-                  orgNames.isNotEmpty)
+          final orgDisplayItems =
+              (orgNames.length == orgCodes.length && orgNames.isNotEmpty)
               ? orgNames
               : orgCodes;
           // Hide unresolved items (fallback raw org codes) from dropdown.
           final resolvedOrgCodes = <String>[];
           final resolvedOrgDisplayItems = <String>[];
-          for (var i = 0; i < orgCodes.length && i < orgDisplayItems.length; i++) {
+          for (
+            var i = 0;
+            i < orgCodes.length && i < orgDisplayItems.length;
+            i++
+          ) {
             final code = orgCodes[i].trim();
             final display = orgDisplayItems[i].trim();
             final isFallbackCode =
-                display.isEmpty || display == code || display.toUpperCase().startsWith('ORG_');
+                display.isEmpty ||
+                display == code ||
+                display.toUpperCase().startsWith('ORG_');
             if (isFallbackCode) continue;
             resolvedOrgCodes.add(code);
             resolvedOrgDisplayItems.add(display);
@@ -176,27 +179,27 @@ class _OrganizationSelectionScreenState
                               ),
                               SizedBox(height: screenHeight * 0.01),
                               Text(
-                                  'WowCare',
-                                  style: TextStyle(
-                                    fontSize: screenHeight * 0.03,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.themeColor,
-                                  ),
+                                'WowCare',
+                                style: TextStyle(
+                                  fontSize: screenHeight * 0.03,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.themeColor,
                                 ),
+                              ),
                               SizedBox(height: screenHeight * 0.03),
                               // Profile avatar + name/role in a row (like design)
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  DocumentImageWidget(
-                                    fileUuid: login.userCode,
+                                  ProfileAvatar(
                                     name: userName,
                                     size: screenHeight * 0.07,
                                     fontSize: screenHeight * 0.024,
                                   ),
                                   SizedBox(width: screenWidth * 0.03),
                                   Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
@@ -215,7 +218,8 @@ class _OrganizationSelectionScreenState
                                           fontFamily: AppFonts.body,
                                           fontSize: screenHeight * 0.016,
                                           fontWeight: FontWeight.w400,
-                                          color: AppColors.authSecondaryTextColor,
+                                          color:
+                                              AppColors.authSecondaryTextColor,
                                         ),
                                       ),
                                     ],
@@ -262,57 +266,62 @@ class _OrganizationSelectionScreenState
                                 valueListenable: _selectedOrgCode,
                                 builder: (context, selectedOrgCode, _) =>
                                     CustomDropdown(
-                                  hintText: resolvedOrgDisplayItems.isNotEmpty
-                                      ? 'Select organization'
-                                      : 'No organizations',
-                                  items: resolvedOrgDisplayItems,
-                                  selectedItem: () {
-                                    if (selectedOrgCode == null) return null;
-                                    final index = resolvedOrgCodes
-                                        .indexOf(selectedOrgCode);
-                                    if (index != -1 &&
-                                        index < resolvedOrgDisplayItems.length) {
-                                      return resolvedOrgDisplayItems[index];
-                                    }
-                                    return null;
-                                  }(),
-                                  height: screenHeight * 0.06,
-                                  contentPadding: EdgeInsets.symmetric(
-                                    vertical: screenHeight * 0.01,
-                                    horizontal: screenWidth * 0.04,
-                                  ),
-                                  leadingIcon: AppIcon(
-                                    MediaRes.homeIcon,
-                                    height: screenHeight * 0.022,
-                                    width: screenHeight * 0.022,
-                                    color: AppColors.authAccentTextColor,
-                                  ),
-                                  selectedTextStyle: TextStyle(
-                                    fontFamily: AppFonts.body,
-                                    fontSize: screenHeight * 0.022,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.authPrimaryTextColor,
-                                  ),
-                                  popupItemTextStyle: TextStyle(
-                                    fontFamily: AppFonts.body,
-                                    fontSize: screenHeight * 0.02,
-                                    fontWeight: FontWeight.w400,
-                                    color: AppColors.authPrimaryTextColor,
-                                  ),
-                                  onSelect: (value) {
-                                    if (value == null) {
-                                      _selectedOrgCode.value = null;
-                                    } else {
-                                      final index = resolvedOrgDisplayItems
-                                          .indexOf(value);
-                                      if (index != -1 &&
-                                          index < resolvedOrgCodes.length) {
-                                        _selectedOrgCode.value =
-                                            resolvedOrgCodes[index];
-                                      }
-                                    }
-                                  },
-                                ),
+                                      hintText:
+                                          resolvedOrgDisplayItems.isNotEmpty
+                                          ? 'Select organization'
+                                          : 'No organizations',
+                                      items: resolvedOrgDisplayItems,
+                                      selectedItem: () {
+                                        if (selectedOrgCode == null)
+                                          return null;
+                                        final index = resolvedOrgCodes.indexOf(
+                                          selectedOrgCode,
+                                        );
+                                        if (index != -1 &&
+                                            index <
+                                                resolvedOrgDisplayItems
+                                                    .length) {
+                                          return resolvedOrgDisplayItems[index];
+                                        }
+                                        return null;
+                                      }(),
+                                      height: screenHeight * 0.06,
+                                      contentPadding: EdgeInsets.symmetric(
+                                        vertical: screenHeight * 0.01,
+                                        horizontal: screenWidth * 0.04,
+                                      ),
+                                      leadingIcon: AppIcon(
+                                        MediaRes.homeIcon,
+                                        height: screenHeight * 0.022,
+                                        width: screenHeight * 0.022,
+                                        color: AppColors.authAccentTextColor,
+                                      ),
+                                      selectedTextStyle: TextStyle(
+                                        fontFamily: AppFonts.body,
+                                        fontSize: screenHeight * 0.022,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.authPrimaryTextColor,
+                                      ),
+                                      popupItemTextStyle: TextStyle(
+                                        fontFamily: AppFonts.body,
+                                        fontSize: screenHeight * 0.02,
+                                        fontWeight: FontWeight.w400,
+                                        color: AppColors.authPrimaryTextColor,
+                                      ),
+                                      onSelect: (value) {
+                                        if (value == null) {
+                                          _selectedOrgCode.value = null;
+                                        } else {
+                                          final index = resolvedOrgDisplayItems
+                                              .indexOf(value);
+                                          if (index != -1 &&
+                                              index < resolvedOrgCodes.length) {
+                                            _selectedOrgCode.value =
+                                                resolvedOrgCodes[index];
+                                          }
+                                        }
+                                      },
+                                    ),
                               ),
                               SizedBox(height: screenHeight * 0.02),
                             ],
@@ -325,7 +334,8 @@ class _OrganizationSelectionScreenState
                       child: ValueListenableBuilder<String?>(
                         valueListenable: _selectedOrgCode,
                         builder: (context, selectedOrgCode, _) {
-                          final isNextEnabled = selectedOrgCode != null &&
+                          final isNextEnabled =
+                              selectedOrgCode != null &&
                               resolvedOrgCodes.contains(selectedOrgCode);
                           return CustomButtonLayout(
                             confirmButtonLabel: 'Next',
@@ -350,7 +360,8 @@ class _OrganizationSelectionScreenState
                                     );
                                     if (!context.mounted) return;
                                     await authCubit.updateLoginContext(
-                                      lastLoginOrganizationCode: selectedOrgCode,
+                                      lastLoginOrganizationCode:
+                                          selectedOrgCode,
                                       lastLoginSchoolCode: null,
                                     );
                                     if (!context.mounted) return;

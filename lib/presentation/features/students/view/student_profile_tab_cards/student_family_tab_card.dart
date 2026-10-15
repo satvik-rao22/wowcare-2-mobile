@@ -25,7 +25,7 @@ import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 class StudentFamilyTabCard extends StatefulWidget {
   const StudentFamilyTabCard({
@@ -575,15 +575,14 @@ class _FamilyCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  DocumentImageWidget(
-                    fileUuid: '',
+                  ProfileAvatar(
+                    name: name,
                     imageUrl: (photoUrl ?? '').trim().isNotEmpty
                         ? photoUrl!.trim()
                         : null,
-                    mediaAssetCode: (photoAssetCode ?? '').trim().isNotEmpty
+                    assetCode: (photoAssetCode ?? '').trim().isNotEmpty
                         ? photoAssetCode!.trim()
                         : null,
-                    name: name,
                     size: 45,
                   ),
                   SizedBox(width: isTablet ? AppSpacing.md : 9),

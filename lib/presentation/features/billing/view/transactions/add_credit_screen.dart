@@ -11,6 +11,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// Captures an account credit for a family/owner and posts it via
 /// `POST /api/v1/invoices/credits`. Styled to match the Receive Payment screen.
@@ -232,24 +233,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
       children: <Widget>[
         Row(
           children: <Widget>[
-            Container(
-              width: 50,
-              height: 50,
-              decoration: const BoxDecoration(
-                color: AppColors.billingFamilyAvatarBackground,
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                _initials(name),
-                style: const TextStyle(
-                  color: AppColors.billingCardOnColorText,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: AppFonts.body,
-                ),
-              ),
-            ),
+            ProfileAvatar(name: name, size: 50),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -268,14 +252,6 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
         SkeuKeyBox(variant: KeyVariant.primary, height: 1.5),
       ],
     );
-  }
-
-  String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty || parts.first.isEmpty) return 'NA';
-    final first = parts.first[0];
-    final second = parts.length > 1 && parts[1].isNotEmpty ? parts[1][0] : '';
-    return (first + second).toUpperCase();
   }
 
   // ── Amount ($ prefix box) ──────────────────────────────────────────────────

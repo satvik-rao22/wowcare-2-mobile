@@ -9,7 +9,8 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/presentation/features/classroom/view/filters/classroom_staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/classroom/view/filters/designation_display_utils.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.dart';
@@ -1201,31 +1202,33 @@ class _StaffListItem extends StatelessWidget {
               absorbing: shouldGreyOut,
               // Staff row is intentionally not tappable — the profile photo
               // must not select the staff or open the action panel.
-              child: DocumentImageWidget(
-                fileUuid: staff.staffCode.trim().isNotEmpty
-                    ? staff.staffCode
-                    : staff.name,
+              child: ProfileAvatar(
+                name: staff.name,
                 imageUrl: (() {
                   final raw = staff.photoUuid.trim();
                   final looksLikeUrl =
                       raw.startsWith('http://') || raw.startsWith('https://');
                   return looksLikeUrl ? raw : null;
                 })(),
-                mediaAssetCode: (() {
+                assetCode: (() {
                   final raw = staff.photoUuid.trim();
                   final looksLikeUrl =
                       raw.startsWith('http://') || raw.startsWith('https://');
                   return (!looksLikeUrl && raw.isNotEmpty) ? raw : null;
                 })(),
-                name: staff.name,
                 staffCode: staff.staffCode.trim().isNotEmpty
                     ? staff.staffCode.trim()
                     : null,
-                staffEmploymentStatus: staff.profileStatus,
-                statusColor: attendanceDotColor,
-                statusTooltip: attendanceTooltip,
-                disableAttendanceStatusLookup: true,
                 size: 50,
+                statusDot: AttendanceStatusDot(
+                  staffCode: staff.staffCode.trim().isNotEmpty
+                      ? staff.staffCode.trim()
+                      : null,
+                  profileStatus: staff.profileStatus,
+                  color: attendanceDotColor,
+                  tooltip: attendanceTooltip,
+                  lookUp: false,
+                ),
               ),
             ),
           ),
@@ -1322,94 +1325,94 @@ class _DesignationMultiSelectDropdownState
     return SkeuFieldWell(
       radius: 8,
       child: SizedBox(
-      height: 32,
-      child: DropdownButtonFormField<String>(
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: AppSurfaces.fieldFill,
-          hintText: widget.hintText,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 5),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide.none,
-          ),
-        ),
-        icon: const Icon(Icons.keyboard_arrow_down),
-        iconSize: 24,
-        elevation: 2,
-        style: const TextStyle(
-          fontFamily: AppFonts.body,
-          color: AppColors.classroomTextColor,
-          fontSize: 16,
-        ),
-        dropdownColor: AppColors.cardColor,
-        items: widget.items.map((String item) {
-          return DropdownMenuItem<String>(
-            value: item,
-            enabled: false,
-            child: StatefulBuilder(
-              builder: (BuildContext context, StateSetter setState) {
-                final isSelected = _localSelectedItems.contains(item);
-                return InkWell(
-                  onTap: () {
-                    setState(() {
-                      if (isSelected) {
-                        _localSelectedItems.remove(item);
-                      } else {
-                        _localSelectedItems.add(item);
-                      }
-                    });
-                    widget.onChanged(_localSelectedItems);
-                  },
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Checkbox(
-                        value: isSelected,
-                        onChanged: (bool? checked) {
-                          setState(() {
-                            if (checked == true) {
-                              _localSelectedItems.add(item);
-                            } else {
-                              _localSelectedItems.remove(item);
-                            }
-                          });
-                          widget.onChanged(_localSelectedItems);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          item,
-                          style: const TextStyle(
-                            fontFamily: AppFonts.body,
-                            fontSize: 14,
-                            color: AppColors.classroomTextColor,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+        height: 32,
+        child: DropdownButtonFormField<String>(
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: AppSurfaces.fieldFill,
+            hintText: widget.hintText,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 5),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none,
             ),
-          );
-        }).toList(),
-        onChanged: (_) {},
-        isExpanded: true,
-        hint: Text(
-          displayText,
-          style: TextStyle(
-            fontFamily: AppFonts.body,
-            color: _localSelectedItems.isEmpty
-                ? AppColors.classroomPlaceholderTextColor
-                : AppColors.classroomTextColor,
-            fontSize: 14,
           ),
-          overflow: TextOverflow.ellipsis,
+          icon: const Icon(Icons.keyboard_arrow_down),
+          iconSize: 24,
+          elevation: 2,
+          style: const TextStyle(
+            fontFamily: AppFonts.body,
+            color: AppColors.classroomTextColor,
+            fontSize: 16,
+          ),
+          dropdownColor: AppColors.cardColor,
+          items: widget.items.map((String item) {
+            return DropdownMenuItem<String>(
+              value: item,
+              enabled: false,
+              child: StatefulBuilder(
+                builder: (BuildContext context, StateSetter setState) {
+                  final isSelected = _localSelectedItems.contains(item);
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        if (isSelected) {
+                          _localSelectedItems.remove(item);
+                        } else {
+                          _localSelectedItems.add(item);
+                        }
+                      });
+                      widget.onChanged(_localSelectedItems);
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Checkbox(
+                          value: isSelected,
+                          onChanged: (bool? checked) {
+                            setState(() {
+                              if (checked == true) {
+                                _localSelectedItems.add(item);
+                              } else {
+                                _localSelectedItems.remove(item);
+                              }
+                            });
+                            widget.onChanged(_localSelectedItems);
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            item,
+                            style: const TextStyle(
+                              fontFamily: AppFonts.body,
+                              fontSize: 14,
+                              color: AppColors.classroomTextColor,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            );
+          }).toList(),
+          onChanged: (_) {},
+          isExpanded: true,
+          hint: Text(
+            displayText,
+            style: TextStyle(
+              fontFamily: AppFonts.body,
+              color: _localSelectedItems.isEmpty
+                  ? AppColors.classroomPlaceholderTextColor
+                  : AppColors.classroomTextColor,
+              fontSize: 14,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
-      ),
       ),
     );
   }

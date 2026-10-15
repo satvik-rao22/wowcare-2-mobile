@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// Resolves which student rows to PATCH when saving an edit.
 ///
@@ -113,12 +114,6 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
                     ? 'Student'
                     : studentNames[i];
                 final isChecked = _isAllSelected || checkedIndices.contains(i);
-                final initials = n
-                    .split(RegExp(r'\s+'))
-                    .where((e) => e.trim().isNotEmpty)
-                    .take(2)
-                    .map((e) => e.trim().substring(0, 1).toUpperCase())
-                    .join();
                 return SizedBox(
                   width: itemWidth,
                   height: 64,
@@ -146,14 +141,7 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
                             onChanged: (v) => _toggleIndex(i, v ?? false),
                           ),
                           const SizedBox(width: 8),
-                          CircleAvatar(
-                            radius: 14,
-                            backgroundColor: AppColors.themeColor,
-                            child: Text(
-                              initials.isEmpty ? 'S' : initials,
-                              style: AppTextStyles.activitySmallBadgeText,
-                            ),
-                          ),
+                          ProfileAvatar(name: n, size: 28),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(

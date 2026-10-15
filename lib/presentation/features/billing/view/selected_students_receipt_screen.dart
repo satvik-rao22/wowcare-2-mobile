@@ -8,7 +8,8 @@ import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
 import 'package:wowcare/presentation/features/billing/model/student_models.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
@@ -311,15 +312,15 @@ class _SelectedStudentsReceiptScreenState
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    DocumentImageWidget(
-                      fileUuid: '',
-                      studentCode: student.code,
-                      mediaAssetCode:
+                    ProfileAvatar(
+                      name: student.fullName,
+                      assetCode:
                           (student.photoAssetCode ?? '').trim().isNotEmpty
                           ? student.photoAssetCode!.trim()
                           : null,
-                      name: student.fullName,
+                      studentCode: student.code,
                       size: 50,
+                      statusDot: AttendanceStatusDot(studentCode: student.code),
                     ),
                     const SizedBox(width: 12),
                     Expanded(

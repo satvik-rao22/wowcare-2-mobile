@@ -4,7 +4,7 @@ import 'package:wowcare/core/theme/app_theme_config.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_media_res.dart';
 import 'ellipsis_tooltip_text.dart';
-import 'profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 
 class SelectedStudentTile extends StatelessWidget {
@@ -51,17 +51,15 @@ class SelectedStudentTile extends StatelessWidget {
           ? MainAxisAlignment.center
           : MainAxisAlignment.start,
       children: [
-        DocumentImageWidget(
-          fileUuid: '',
+        ProfileAvatar(
+          name: name,
+
           // `avatarUrl` is either a resolved URL or a raw media-asset code
           // depending on the caller — `fileUuid` is never actually used to
           // resolve an image (only `imageUrl`/`mediaAssetCode` are), so
           // route to whichever matches the value's shape.
           imageUrl: (avatarUrl ?? '').startsWith('http') ? avatarUrl : null,
-          mediaAssetCode: (avatarUrl ?? '').startsWith('http')
-              ? null
-              : avatarUrl,
-          name: name,
+          assetCode: (avatarUrl ?? '').startsWith('http') ? null : avatarUrl,
           size: 35,
         ),
         SizedBox(width: useViewColors ? 8 : 4),

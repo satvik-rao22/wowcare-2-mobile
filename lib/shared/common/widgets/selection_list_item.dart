@@ -3,7 +3,7 @@ import 'package:wowcare/core/theme/app_theme_config.dart';
 import '../../../../core/theme/app_colors.dart';
 import 'custom_checkbox.dart';
 import 'ellipsis_tooltip_text.dart';
-import 'profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 class CommonSelectionItem extends StatelessWidget {
   final String name;
@@ -65,8 +65,9 @@ class CommonSelectionItem extends StatelessWidget {
               ),
               Opacity(
                 opacity: isEnabled ? 1 : 0.5,
-                child: DocumentImageWidget(
-                  fileUuid: '',
+                child: ProfileAvatar(
+                  name: name,
+
                   // `avatarUuid` is either a resolved URL or a raw media-asset
                   // code depending on the caller — `fileUuid` is never
                   // actually used to resolve an image (only
@@ -75,10 +76,9 @@ class CommonSelectionItem extends StatelessWidget {
                   imageUrl: (avatarUuid ?? '').startsWith('http')
                       ? avatarUuid
                       : null,
-                  mediaAssetCode: (avatarUuid ?? '').startsWith('http')
+                  assetCode: (avatarUuid ?? '').startsWith('http')
                       ? null
                       : avatarUuid,
-                  name: name,
                   size: size,
                   fontSize: fontSize,
                 ),

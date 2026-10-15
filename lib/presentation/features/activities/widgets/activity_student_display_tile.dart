@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 
 /// Same chrome as student tiles on the activity student picker, without checkbox.
@@ -43,12 +44,14 @@ class ActivityStudentDisplayTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         child: Row(
           children: [
-            DocumentImageWidget(
-              fileUuid: '',
+            ProfileAvatar(
               name: display,
               studentCode: code.isEmpty ? null : code,
               size: 28,
               fontSize: 12,
+              statusDot: AttendanceStatusDot(
+                studentCode: code.isEmpty ? null : code,
+              ),
             ),
             const SizedBox(width: 6),
             Expanded(

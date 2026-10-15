@@ -12,7 +12,8 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/presentation/features/billing/view/create_invoice_screen.dart';
@@ -24,7 +25,7 @@ import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 
 class SelectStudentsScreen extends StatefulWidget {
   const SelectStudentsScreen({Key? key, this.invoiceData, this.onNext})
-      : super(key: key);
+    : super(key: key);
 
   static const String routeName = '/billing/select-students';
   final InvoiceDraft? invoiceData;
@@ -65,9 +66,9 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
       child: BlocBuilder<SelectStudentsCubit, SelectStudentsState>(
         builder: (context, state) {
           final filtered = state.filteredStudents;
-          final visibleCodes =
-              filtered.map((student) => student.code).toList();
-          final bool areAllSelected = filtered.isNotEmpty &&
+          final visibleCodes = filtered.map((student) => student.code).toList();
+          final bool areAllSelected =
+              filtered.isNotEmpty &&
               filtered.every(
                 (student) => state.selectedStudentCodes.contains(student.code),
               );
@@ -160,38 +161,38 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                   child: state.isLoading
                       ? const Center(child: PrimaryCircularLoader())
                       : (state.errorMessage != null && filtered.isEmpty)
-                          ? AppErrorState(
-                              title: state.errorMessage!,
-                              onRetry: _cubit.initialize,
-                            )
-                          : filtered.isEmpty
-                              ? const Center(
-                                  child: Text(
-                                    BillingStrings.noStudentsFound,
-                                    style: TextStyle(
-                                      fontFamily: AppFonts.body,
-                                      fontSize: 14,
-                                      color: AppColors.billingTextColor,
-                                    ),
-                                  ),
-                                )
-                              : ListView.builder(
-                                  itemCount: filtered.length,
-                                  itemBuilder: (context, index) {
-                                    final student = filtered[index];
-                                    final isChecked = state.selectedStudentCodes
-                                        .contains(student.code);
-                                    return _StudentRow(
-                                      student: student,
-                                      isChecked: isChecked,
-                                      onTap: () =>
-                                          _cubit.toggleStudent(student.code),
-                                      onChanged: (val) =>
-                                          _cubit.setStudentSelected(
-                                              student.code, val ?? false),
-                                    );
-                                  },
-                                ),
+                      ? AppErrorState(
+                          title: state.errorMessage!,
+                          onRetry: _cubit.initialize,
+                        )
+                      : filtered.isEmpty
+                      ? const Center(
+                          child: Text(
+                            BillingStrings.noStudentsFound,
+                            style: TextStyle(
+                              fontFamily: AppFonts.body,
+                              fontSize: 14,
+                              color: AppColors.billingTextColor,
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: filtered.length,
+                          itemBuilder: (context, index) {
+                            final student = filtered[index];
+                            final isChecked = state.selectedStudentCodes
+                                .contains(student.code);
+                            return _StudentRow(
+                              student: student,
+                              isChecked: isChecked,
+                              onTap: () => _cubit.toggleStudent(student.code),
+                              onChanged: (val) => _cubit.setStudentSelected(
+                                student.code,
+                                val ?? false,
+                              ),
+                            );
+                          },
+                        ),
                 ),
               ],
             ),
@@ -232,7 +233,8 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
           if (result == null) {
             CoreUtils.showTopSnackBar(
               context: context,
-              message: _cubit.state.errorMessage ??
+              message:
+                  _cubit.state.errorMessage ??
                   BillingStrings.couldNotVerifyStudents,
               isWarning: true,
             );
@@ -244,8 +246,9 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
           // the flow for everyone else.
           var recipients = selectedStudents;
           if (!result.allEligible) {
-            final ineligibleCodes =
-                result.ineligible.map((r) => r.studentCode).toSet();
+            final ineligibleCodes = result.ineligible
+                .map((r) => r.studentCode)
+                .toSet();
             recipients = selectedStudents
                 .where((s) => !ineligibleCodes.contains(s.code))
                 .toList();
@@ -295,8 +298,9 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor:
-                      AlwaysStoppedAnimation(AppColors.billingCardColor),
+                  valueColor: AlwaysStoppedAnimation(
+                    AppColors.billingCardColor,
+                  ),
                 ),
               )
             : const Text(
@@ -332,8 +336,10 @@ class _StudentRow extends StatelessWidget {
   static String? _daysPerWeekTag(List<Tag> tags) {
     for (final t in tags) {
       final name = t.name.trim();
-      if (RegExp(r'\d+\s*days?\s*/?\s*week', caseSensitive: false)
-          .hasMatch(name)) {
+      if (RegExp(
+        r'\d+\s*days?\s*/?\s*week',
+        caseSensitive: false,
+      ).hasMatch(name)) {
         return name;
       }
     }
@@ -372,20 +378,22 @@ class _StudentRow extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 6),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          border: Border.all(color: AppColors.billingInputBorderFocused, width: 1),
+          border: Border.all(
+            color: AppColors.billingInputBorderFocused,
+            width: 1,
+          ),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           children: [
-            DocumentImageWidget(
-              fileUuid: '',
-              studentCode: student.code,
-              mediaAssetCode: (student.photoAssetCode ?? '').trim().isNotEmpty
+            ProfileAvatar(
+              name: student.fullName,
+              assetCode: (student.photoAssetCode ?? '').trim().isNotEmpty
                   ? student.photoAssetCode!.trim()
                   : null,
-              name: student.fullName,
+              studentCode: student.code,
               size: 50,
-              shape: BoxShape.circle,
+              statusDot: AttendanceStatusDot(studentCode: student.code),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -416,10 +424,7 @@ class _StudentRow extends StatelessWidget {
                 ],
               ),
             ),
-            CustomCheckbox(
-              value: isChecked,
-              onChanged: onChanged,
-            ),
+            CustomCheckbox(value: isChecked, onChanged: onChanged),
           ],
         ),
       ),

@@ -9,7 +9,7 @@ import 'package:wowcare/presentation/features/billing/widgets/billing_school_hea
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/core/utils/date_utils.dart';
 
 /// Locally-derived invoice header shown alongside a receipt/invoice (not
@@ -423,11 +423,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
             fontWeight: FontWeight.w500,
           ),
         ),
-        DocumentImageWidget(
-          fileUuid: widget.transaction.studentPhotoUuid ?? '',
-          name: widget.transaction.studentName,
-          size: 50,
-        ),
+        ProfileAvatar(name: widget.transaction.studentName, size: 50),
         const SizedBox(width: 5),
         Text(
           widget.transaction.studentName,

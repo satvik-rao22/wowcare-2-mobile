@@ -1,3 +1,4 @@
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
@@ -15,7 +16,8 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.da
 import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_documents_tab.dart';
 import 'package:wowcare/shared/common/widgets/profile_photo_action_sheet.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_profile_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_profile_photo_upload_cubit.dart';
@@ -351,7 +353,8 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
     if (!role.isStaff) return false;
     final own = (_ownStaffCode ?? '').trim();
     final isOwnProfile = own.isNotEmpty && own == widget.staffCode.trim();
-    return isOwnProfile && (_staffSettings?.canStaffEditTheirOwnHealthRecords ?? false);
+    return isOwnProfile &&
+        (_staffSettings?.canStaffEditTheirOwnHealthRecords ?? false);
   }
 
   bool _canMessageStaff() {
@@ -509,8 +512,10 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
             imagePath: imagePath,
           );
 
-      DocumentImageWidget.clearProfilePhotoCache(staffCode: staffCode);
-      DocumentImageWidget.markStaffPhotoUploaded(staffCode);
+      serviceLocator<AssetService>().clearProfilePhotoCache(
+        staffCode: staffCode,
+      );
+      serviceLocator<AssetService>().markStaffPhotoUploaded(staffCode);
       // forEditStaff:true — an admin/director can change another staff
       // member's photo here (see `_canEditStaffRecords`), so this must read
       // that staff member's own record, not fall back to my-profile.
@@ -645,7 +650,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
       return false;
     }
     return (_profilePhotoUrl ?? '').trim().isNotEmpty ||
-        DocumentImageWidget.hasResolvedStaffPhoto(widget.staffCode);
+        serviceLocator<AssetService>().hasResolvedStaffPhoto(widget.staffCode);
   }
 
   Future<void> _deleteProfilePhoto() async {
@@ -661,7 +666,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
       // forget the cached URL so every other mounted avatar re-resolves.
       if (!mounted) return;
       setState(() => _profilePhotoUrl = null);
-      DocumentImageWidget.forgetProfilePhoto(staffCode: staffCode);
+      serviceLocator<AssetService>().forgetProfilePhoto(staffCode: staffCode);
       await _staffProfileCubit.fetchProfile(staffCode: staffCode);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -700,7 +705,8 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                           // held back while an upload is still in flight).
                           hasPhoto: _hasStaffPhotoToDelete(),
                           hasPhotoNow: _hasStaffPhotoToDelete,
-                          refreshOn: DocumentImageWidget.profilePhotoResolved,
+                          refreshOn: serviceLocator<AssetService>()
+                              .profilePhotoResolved,
                           subjectName: _displayName.trim().isNotEmpty
                               ? _displayName
                               : widget.name,
@@ -714,8 +720,15 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                       return Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          DocumentImageWidget(
-                            fileUuid: widget.staffCode,
+                          ProfileAvatar(
+                            // Use the resolved display name so the no-photo branch
+                            // renders the coloured initials avatar. On a deep-link
+                            // widget.name starts empty, which fell back to the grey
+                            // placeholder instead of initials.
+                            name: _displayName.trim().isNotEmpty
+                                ? _displayName
+                                : widget.name,
+
                             // `_profilePhotoUrl` isn't always a resolved
                             // http(s) URL — some responses hand back a raw
                             // media-asset code instead. Feeding that
@@ -729,24 +742,18 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                                 (_profilePhotoUrl ?? '').startsWith('http')
                                 ? _profilePhotoUrl
                                 : null,
-                            mediaAssetCode:
+                            assetCode:
                                 (_profilePhotoUrl ?? '').isNotEmpty &&
-                                    !(_profilePhotoUrl ?? '').startsWith(
-                                      'http',
-                                    )
+                                    !(_profilePhotoUrl ?? '').startsWith('http')
                                 ? _profilePhotoUrl
                                 : null,
-                            // Use the resolved display name so the no-photo branch
-                            // renders the coloured initials avatar. On a deep-link
-                            // widget.name starts empty, which fell back to the grey
-                            // placeholder instead of initials.
-                            name: _displayName.trim().isNotEmpty
-                                ? _displayName
-                                : widget.name,
                             staffCode: widget.staffCode,
-                            staffEmploymentStatus: widget.employmentStatus,
                             size: 90,
                             fontSize: 24,
+                            statusDot: AttendanceStatusDot(
+                              staffCode: widget.staffCode,
+                              profileStatus: widget.employmentStatus,
+                            ),
                           ),
                           if (uploadState.isUploading)
                             Positioned.fill(

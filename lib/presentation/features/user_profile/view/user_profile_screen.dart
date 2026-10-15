@@ -1,3 +1,5 @@
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -17,7 +19,8 @@ import 'package:wowcare/core/utils/school_switch_events.dart';
 import 'package:wowcare/core/utils/string_utils.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/shared/common/widgets/profile_photo_action_sheet.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/user_profile_cubit.dart';
 import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
@@ -331,7 +334,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     // The avatar also resolves a staff photo by code when the profile carries
     // no URL, so honour that too or Delete is hidden while a photo is showing.
     return (_profile?.profilePhotoUrl ?? '').trim().isNotEmpty ||
-        DocumentImageWidget.hasResolvedStaffPhoto(_effectiveStaffCode());
+        serviceLocator<AssetService>().hasResolvedStaffPhoto(
+          _effectiveStaffCode(),
+        );
   }
 
   Future<void> _openStaffProfile() async {
@@ -548,28 +553,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                   _hasDeletableProfilePhoto(
                                                     isParent: isParentPersona,
                                                   ),
-                                              refreshOn: DocumentImageWidget
-                                                  .profilePhotoResolved,
+                                              refreshOn:
+                                                  serviceLocator<AssetService>()
+                                                      .profilePhotoResolved,
                                               onDelete: _deleteProfileImage,
                                             ),
                                         child: Stack(
                                           clipBehavior: Clip.none,
                                           children: [
-                                            DocumentImageWidget(
-                                              fileUuid: isParentPersona
-                                                  ? (_guardianCode.isNotEmpty
-                                                        ? _guardianCode
-                                                        : (displayName
-                                                                  .isNotEmpty
-                                                              ? displayName
-                                                              : 'User'))
-                                                  : (_effectiveStaffCode()
-                                                            .isNotEmpty
-                                                        ? _effectiveStaffCode()
-                                                        : (displayName
-                                                                  .isNotEmpty
-                                                              ? displayName
-                                                              : 'User')),
+                                            ProfileAvatar(
                                               name: displayName.isNotEmpty
                                                   ? displayName
                                                   : 'User',
@@ -588,7 +580,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                               .profilePhotoUrl
                                                               .trim()
                                                         : null),
-                                              mediaAssetCode: isParentPersona
+                                              assetCode: isParentPersona
                                                   ? (_guardianPhotoAssetCode
                                                             .trim()
                                                             .isNotEmpty
@@ -602,14 +594,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                           .isNotEmpty)
                                                   ? _effectiveStaffCode()
                                                   : null,
-                                              staffEmploymentStatus:
-                                                  isParentPersona
-                                                  ? null
-                                                  : _profile?.status,
-                                              disableAttendanceStatusLookup:
-                                                  isParentPersona,
                                               size: 90,
                                               fontSize: 24,
+                                              statusDot: AttendanceStatusDot(
+                                                staffCode:
+                                                    (!isParentPersona &&
+                                                        _effectiveStaffCode()
+                                                            .isNotEmpty)
+                                                    ? _effectiveStaffCode()
+                                                    : null,
+                                                profileStatus: isParentPersona
+                                                    ? null
+                                                    : _profile?.status,
+                                                lookUp: !isParentPersona,
+                                              ),
                                             ),
                                             if (_isUploadingProfilePhoto)
                                               Positioned.fill(

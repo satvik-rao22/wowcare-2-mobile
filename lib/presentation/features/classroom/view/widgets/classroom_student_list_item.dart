@@ -13,7 +13,8 @@ import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 // The following imports depend on backend/bloc not available now. Keeping commented.
 // import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 // import 'package:wowcare/src/documents/presentation/bloc/document_bloc.dart';
 // import 'package:wowcare/core/services/injection_container.dart';
 // import 'package:wowcare/core/utils/typedefs.dart';
@@ -147,21 +148,23 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
                       Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          DocumentImageWidget(
-                            fileUuid: widget.studentCode.trim().isNotEmpty
-                                ? widget.studentCode
-                                : widget.studentId.toString(),
-                            imageUrl: directUrl,
-                            mediaAssetCode: assetCode,
+                          ProfileAvatar(
                             name: widget.name,
+                            imageUrl: directUrl,
+                            assetCode: assetCode,
                             studentCode: widget.studentCode.trim().isNotEmpty
                                 ? widget.studentCode.trim()
                                 : null,
-                            studentEnrollmentStatus: enrollmentStatus,
-                            statusColor: attendanceDotColor,
-                            statusTooltip: attendanceTooltip,
-                            disableAttendanceStatusLookup: true,
                             size: 50,
+                            statusDot: AttendanceStatusDot(
+                              studentCode: widget.studentCode.trim().isNotEmpty
+                                  ? widget.studentCode.trim()
+                                  : null,
+                              profileStatus: enrollmentStatus,
+                              color: attendanceDotColor,
+                              tooltip: attendanceTooltip,
+                              lookUp: false,
+                            ),
                           ),
                           if (widget.icons.containsKey('napping'))
                             Positioned(

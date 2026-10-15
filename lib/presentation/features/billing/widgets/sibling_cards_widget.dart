@@ -4,7 +4,8 @@ import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 
 /// Reusable widget for displaying student cards with balance and payment buttons.
 class SiblingCardsWidget extends StatelessWidget {
@@ -40,7 +41,11 @@ class SiblingCardsWidget extends StatelessWidget {
     final items = <List<dynamic>>[
       [BillingStrings.paid, paid, AppColors.billingSiblingPaidColor],
       [BillingStrings.netPaid, netPaid, AppColors.themeColor],
-      [BillingStrings.refunded, refunded, AppColors.billingSiblingRefundedColor],
+      [
+        BillingStrings.refunded,
+        refunded,
+        AppColors.billingSiblingRefundedColor,
+      ],
       [BillingStrings.unpaid, unpaid, AppColors.billingSiblingUnpaidColor],
       [BillingStrings.inProcess, inProcess, AppColors.billingAccentBlue],
     ];
@@ -101,9 +106,7 @@ class SiblingCardsWidget extends StatelessWidget {
         color: AppColors.cardColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-            color: AppColors.cardBorderColor,
-          ),
+          side: BorderSide(color: AppColors.cardBorderColor),
         ),
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -125,14 +128,18 @@ class SiblingCardsWidget extends StatelessWidget {
                     final student = students[index];
                     return Row(
                       children: [
-                        DocumentImageWidget(
-                          fileUuid: '',
+                        ProfileAvatar(
+                          name: student.fullName,
                           studentCode: student.code.trim().isNotEmpty
                               ? student.code
                               : null,
-                          name: student.fullName,
                           size: 30,
                           fontSize: 12,
+                          statusDot: AttendanceStatusDot(
+                            studentCode: student.code.trim().isNotEmpty
+                                ? student.code
+                                : null,
+                          ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(

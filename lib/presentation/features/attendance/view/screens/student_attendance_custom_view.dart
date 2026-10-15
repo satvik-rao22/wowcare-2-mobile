@@ -14,7 +14,7 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -923,15 +923,13 @@ class _CustomStudentCardItem extends StatelessWidget {
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    DocumentImageWidget(
-                      fileUuid: attendance.studentPhotoUuid,
+                    ProfileAvatar(
+                      name: studentName,
                       studentCode: attendance.studentCode.isNotEmpty
                           ? attendance.studentCode
                           : attendance.id,
                       size: avatarSize,
-                      name: studentName,
                       fontSize: responsive.isTablet ? 18 : 16,
-                      disableAttendanceStatusLookup: true,
                     ),
                   ],
                 ),

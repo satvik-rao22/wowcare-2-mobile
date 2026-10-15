@@ -9,7 +9,7 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
@@ -617,13 +617,11 @@ class _CustomStaffCardItem extends StatelessWidget {
             Row(
               children: [
                 // Profile photo
-                DocumentImageWidget(
-                  fileUuid: attendance.staffPhotoUuid,
-                  staffCode: attendance.id,
+                ProfileAvatar(
                   name: staffName,
+                  staffCode: attendance.id,
                   size: avatarSize,
                   fontSize: responsive.isTablet ? 18 : 16,
-                  disableAttendanceStatusLookup: true,
                 ),
                 SizedBox(width: responsive.horizontalSpacing / 2),
                 // Header matches staff_card.dart: name (left) + classroom (right).

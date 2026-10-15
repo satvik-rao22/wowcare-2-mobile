@@ -16,7 +16,8 @@ import 'package:wowcare/presentation/features/classroom/view_model/assign_studen
 import 'package:wowcare/presentation/features/classroom/view_model/assign_student_selection_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/assign_student_selection_state.dart';
 import 'package:wowcare/presentation/features/classroom/forms/widgets/assign_classroom_form_widgets.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
@@ -368,14 +369,16 @@ class _StudentConfirmationView extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          DocumentImageWidget(
-                            fileUuid: '',
-                            imageUrl: _studentImageUrl(student),
-                            mediaAssetCode: _studentAssetCode(student),
+                          ProfileAvatar(
                             name: student.fullName,
+                            imageUrl: _studentImageUrl(student),
+                            assetCode: _studentAssetCode(student),
                             studentCode: student.code,
                             size: 32,
                             fontSize: 12,
+                            statusDot: AttendanceStatusDot(
+                              studentCode: student.code,
+                            ),
                           ),
                           const SizedBox(width: 6),
                           Expanded(
@@ -509,14 +512,14 @@ class StudentListItem extends StatelessWidget {
                     onChanged: isSignedIn ? null : onSelectionChanged,
                   ),
                 ),
-                DocumentImageWidget(
-                  fileUuid: '',
-                  imageUrl: _studentImageUrl(student),
-                  mediaAssetCode: _studentAssetCode(student),
+                ProfileAvatar(
                   name: student.fullName,
+                  imageUrl: _studentImageUrl(student),
+                  assetCode: _studentAssetCode(student),
                   studentCode: student.code,
                   size: 32,
                   fontSize: 12,
+                  statusDot: AttendanceStatusDot(studentCode: student.code),
                 ),
                 const SizedBox(width: 8),
                 Expanded(

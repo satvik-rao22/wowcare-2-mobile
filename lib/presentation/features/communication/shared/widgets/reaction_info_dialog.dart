@@ -3,7 +3,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// One person's reaction, resolved for display — stack-agnostic so both the
 /// legacy (Room Chat / Staff Direct) and v2 (Admin Chat) message models can
@@ -166,16 +166,12 @@ class _ReactionPersonTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          DocumentImageWidget(
-            fileUuid: '',
-            imageUrl: isUrl ? avatarSource : null,
-            mediaAssetCode: !isUrl && avatarSource.isNotEmpty
-                ? avatarSource
-                : null,
+          ProfileAvatar(
             name: person.name,
+            imageUrl: isUrl ? avatarSource : null,
+            assetCode: !isUrl && avatarSource.isNotEmpty ? avatarSource : null,
             size: 32,
             fontSize: 12,
-            disableAttendanceStatusLookup: true,
           ),
           const SizedBox(width: AppSizes.xsPlus),
           Expanded(

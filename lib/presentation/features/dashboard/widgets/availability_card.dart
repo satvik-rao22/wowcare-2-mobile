@@ -14,7 +14,7 @@ import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_h
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_collapsible.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 import 'package:wowcare/presentation/features/classroom/view/screens/classroom_screen.dart';
 
@@ -452,14 +452,12 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
               padding: const EdgeInsets.all(8.0),
               child: Row(
                 children: [
-                  DocumentImageWidget(
-                    fileUuid: '',
+                  ProfileAvatar(
                     name: item.roomName,
                     classroomCode: item.roomId,
+                    lookUpProfilePhoto: false,
                     size: 32,
                     fontSize: 12,
-                    disableProfileLookupFallback: true,
-                    disableAttendanceStatusLookup: true,
                   ),
                   const SizedBox(width: 12),
                   Expanded(

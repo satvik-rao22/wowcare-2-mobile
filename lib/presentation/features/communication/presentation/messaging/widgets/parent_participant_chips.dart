@@ -5,7 +5,7 @@ import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/participant_avatar_source.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// Legacy-compatible participant chips for ParentMessagingThread.
 ///
@@ -78,14 +78,12 @@ class ParentParticipantChips extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                DocumentImageWidget(
-                  disableAttendanceStatusLookup: true,
-                  fileUuid: '',
+                ProfileAvatar(
+                  name: name,
                   imageUrl: avatar.imageUrl,
-                  mediaAssetCode: avatar.mediaAssetCode,
+                  assetCode: avatar.mediaAssetCode,
                   staffCode: avatar.staffCode,
                   userCode: avatar.userCode,
-                  name: name,
                   size: 16,
                   fontSize: 9,
                 ),

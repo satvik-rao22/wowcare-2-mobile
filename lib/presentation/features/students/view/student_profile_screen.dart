@@ -44,7 +44,8 @@ import 'package:wowcare/presentation/features/communication/bulk_messaging/utils
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/profile_photo_action_sheet.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 
 import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
@@ -512,7 +513,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       // the image — then forget the cached URL for every other mounted avatar.
       if (!mounted) return;
       setState(() => _profilePhotoUrl = null);
-      DocumentImageWidget.forgetProfilePhoto(studentCode: studentCode);
+      serviceLocator<AssetService>().forgetProfilePhoto(
+        studentCode: studentCode,
+      );
 
       // The profile blob is persisted (see the upload path below), and it still
       // holds the old photo URL. Re-read and re-save it, or the deleted photo
@@ -530,7 +533,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
       if (!mounted) return;
       setState(
-        () => _profilePhotoUrl = (refreshed.profilePhotoUrl ?? '').trim().isEmpty
+        () =>
+            _profilePhotoUrl = (refreshed.profilePhotoUrl ?? '').trim().isEmpty
             ? null
             : refreshed.profilePhotoUrl!.trim(),
       );
@@ -607,7 +611,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         setState(() => _profilePhotoUploadPercent = 100);
       }
 
-      DocumentImageWidget.clearProfilePhotoCache(studentCode: studentCode);
+      serviceLocator<AssetService>().clearProfilePhotoCache(
+        studentCode: studentCode,
+      );
 
       // MVVM holdout (documented): getStudentProfile here needs the rich StudentProfileModel (status/dob/address/tags/fte/...); the domain StudentProfile entity is a narrow projection, so this read stays on the datasource until the entity is enriched (S6 typed-models).
       final dataSource = serviceLocator<StudentRemoteDataSource>();
@@ -812,14 +818,16 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        DocumentImageWidget(
-                          fileUuid: _activeStudentCode ?? _displayName,
-                          imageUrl: _profilePhotoUrl,
+                        ProfileAvatar(
                           name: _displayName,
+                          imageUrl: _profilePhotoUrl,
                           studentCode: _activeStudentCode,
-                          studentEnrollmentStatus: _profileStatusUpper,
                           size: 90,
                           fontSize: 24,
+                          statusDot: AttendanceStatusDot(
+                            studentCode: _activeStudentCode,
+                            profileStatus: _profileStatusUpper,
+                          ),
                         ),
                         if (_isUploadingProfilePhoto)
                           Positioned.fill(
@@ -1161,10 +1169,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               // Stays enabled while unresolved (still loading, or the lookup
               // failed) — only a CONFIRMED empty guardian list disables it,
               // so a slow/failed fetch never wrongly blocks a real guardian.
-              final bool noGuardianConfirmed = !guardianState.isLoading &&
+              final bool noGuardianConfirmed =
+                  !guardianState.isLoading &&
                   guardianState.errorMessage == null &&
                   guardianState.guardians.isEmpty;
-              final bool messagingOk = role.canAccessAny([
+              final bool messagingOk =
+                  role.canAccessAny([
                     AppAccessModules.parentMessaging,
                     AppAccessModules.staffMessaging,
                   ]) &&
@@ -1225,10 +1235,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 // specific student having a billing family (see
                 // _resolveHasBillingFamily) — a parent always has their own
                 // billing tab to land on regardless, so this only gates admin.
-                final bool noBillingFamilyConfirmed = role.isAdmin &&
-                    !role.isStaff &&
-                    _hasBillingFamily == false;
-                final bool billingOk = role.canAccessAny([
+                final bool noBillingFamilyConfirmed =
+                    role.isAdmin && !role.isStaff && _hasBillingFamily == false;
+                final bool billingOk =
+                    role.canAccessAny([
                       AppAccessModules.transaction,
                       AppAccessModules.invoices,
                       AppAccessModules.recurringPlans,
@@ -1299,11 +1309,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   Future<void> _resolveHasBillingFamily(String studentCode) async {
     try {
       final storage = serviceLocator<StorageService>();
-      final org =
-          (await storage.getString(StorageKeys.organizationCode) ?? '')
-              .trim();
-      final school =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final org = (await storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+      final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       if (org.isEmpty || school.isEmpty) return;
       final families = await serviceLocator<GetFamilySummaryUseCase>()(
         organizationCode: org,
@@ -1409,12 +1418,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     final void Function() tap = enabled
         ? onTap
         : () => disabledMessage != null
-            ? CoreUtils.showTopSnackBar(
-                context: context,
-                message: disabledMessage,
-                isWarning: true,
-              )
-            : ModuleAccess.showFeatureRestricted(context);
+              ? CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: disabledMessage,
+                  isWarning: true,
+                )
+              : ModuleAccess.showFeatureRestricted(context);
     return InkWell(
       onTap: tap,
       child: Opacity(

@@ -3,10 +3,10 @@ import 'package:wowcare/modules/attendance_v2/core/theme/av2_colors.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_spacing.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_text_styles.dart';
 import 'package:wowcare/modules/attendance_v2/core/utils/av2_date_formatter.dart';
-import 'package:wowcare/modules/attendance_v2/presentation/widgets/av2_avatar.dart';
 
 import '../../domain/entities/regularization_request.dart';
 import 'reg_status_pill.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// Admin-facing notification tile for a regularization request. Reusable in
 /// the approver inbox, a dashboard "needs your approval" card, or a
@@ -61,7 +61,11 @@ class RegAdminNotificationTile extends StatelessWidget {
                 ),
                 const SizedBox(width: Av2Spacing.sm),
               ],
-              Av2Avatar(initials: request.initials, diameter: 38),
+              ProfileAvatar(
+                name: request.staffName,
+                staffCode: request.staffCode,
+                size: 38,
+              ),
               const SizedBox(width: Av2Spacing.sm),
               Expanded(child: _body(request)),
               const SizedBox(width: 8),

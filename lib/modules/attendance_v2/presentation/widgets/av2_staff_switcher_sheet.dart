@@ -5,6 +5,7 @@ import '../../core/theme/av2_colors.dart';
 import '../../core/theme/av2_spacing.dart';
 import '../../core/theme/av2_text_styles.dart';
 import '../../domain/entities/av2_staff_summary.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// Admin "switch staff" picker — searchable list of staff with avatars; the
 /// current staff is highlighted. Returns the selected member.
@@ -182,22 +183,7 @@ class _StaffSwitcherSheetState extends State<_StaffSwitcherSheet> {
           ),
           child: Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: Av2Colors.avatarBg,
-                  shape: BoxShape.circle,
-                ),
-                child: Text(
-                  s.initials,
-                  style: Av2Text.bodyMedium.copyWith(
-                    color: Av2Colors.avatarText,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
+              ProfileAvatar(name: s.name, staffCode: s.code),
               const SizedBox(width: Av2Spacing.sm),
               Expanded(
                 child: Column(

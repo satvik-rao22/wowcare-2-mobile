@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 import '../../../../domain/features/notifications/entities/app_notification.dart';
 import 'notification_category_style.dart';
@@ -14,11 +14,7 @@ import 'notification_category_style.dart';
 /// Stateless and dumb: it renders the [notification] and forwards taps to
 /// [onTap]. All read-state logic lives in the cubit.
 class NotificationCard extends StatelessWidget {
-  const NotificationCard({
-    super.key,
-    required this.notification,
-    this.onTap,
-  });
+  const NotificationCard({super.key, required this.notification, this.onTap});
 
   final AppNotification notification;
   final VoidCallback? onTap;
@@ -53,19 +49,17 @@ class NotificationCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Profile avatar via the shared DocumentImageWidget. With no
+              // Profile avatar via the shared ProfileAvatar. With no
               // image/codes and the lookup fallbacks disabled it renders a
               // stable coloured initials avatar (no network calls) — the
               // initials come from the subject's name (e.g. "Parker Long" → PL).
               // When notifications later carry a staff/student code, pass it
               // here and real photos resolve automatically.
-              DocumentImageWidget(
-                fileUuid: notification.id,
+              ProfileAvatar(
                 name: notification.subjectName ?? notification.category.label,
+                lookUpProfilePhoto: false,
                 size: 40,
                 fontSize: 15,
-                disableProfileLookupFallback: true,
-                disableAttendanceStatusLookup: true,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -104,14 +98,13 @@ class NotificationCard extends StatelessWidget {
                             fontFamily: AppFonts.body,
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
-                            color: AppColors.primaryColor.withValues(alpha: 0.5),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 10),
-                        _CategoryChip(
-                          label: chipLabel,
-                          style: style,
-                        ),
+                        _CategoryChip(label: chipLabel, style: style),
                       ],
                     ),
                   ],

@@ -137,19 +137,6 @@ void main() {
       expect(build(hasPending: true, pendingCode: '').resolvesByEdit, isFalse);
       expect(build(pendingCode: 'SREG_1').resolvesByEdit, isFalse);
     });
-
-    test('initials handle one-word, two-word and empty names', () {
-      MissedSignout named(String n) => MissedSignout(
-            attendanceCode: 'STAR_1',
-            attendanceDate: date,
-            staffName: n,
-          );
-      expect(named('Sara Malik').initials, 'SM');
-      expect(named('Sara').initials, 'S');
-      expect(named('Sara Jane Malik').initials, 'SM');
-      expect(named('').initials, '?');
-      expect(named('   ').initials, '?');
-    });
   });
 
   group('RegularizationRequest', () {

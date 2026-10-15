@@ -20,7 +20,8 @@ import 'package:wowcare/domain/features/staff/usecases/get_cached_staff_profile_
 import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import 'package:wowcare/domain/features/user_profile/usecases/get_guardian_profile_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/resolve_logged_in_staff_code_usecase.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/shared/services/asset/asset_service.dart';
 import 'package:wowcare/shared/services/asset/profile_photo_uploader.dart';
 
@@ -243,8 +244,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
           cachedStaffSchool == currentSchool) {
         return cachedStaffCode;
       }
-      final resolved =
-          (await _resolveLoggedInStaffCodeUseCase() ?? '').trim();
+      final resolved = (await _resolveLoggedInStaffCodeUseCase() ?? '').trim();
       return resolved;
     } catch (_) {
       return '';
@@ -573,7 +573,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
         code: staffCode,
       );
 
-      DocumentImageWidget.forgetProfilePhoto(staffCode: staffCode);
+      serviceLocator<AssetService>().forgetProfilePhoto(staffCode: staffCode);
       await loadStaffProfile(staffCode);
       return const UserProfilePhotoResult(
         UserProfilePhotoStatus.success,
@@ -602,10 +602,10 @@ class UserProfileCubit extends Cubit<UserProfileState> {
         code: guardianCode,
       );
 
-      // Clear state FIRST — this is what empties DocumentImageWidget.imageUrl
+      // Clear state FIRST — this is what empties ProfileAvatar.imageUrl
       // and so what visually removes the photo.
       if (!isClosed) emit(state.copyWith(clearGuardianPhoto: true));
-      DocumentImageWidget.clearProfilePhotoCache();
+      serviceLocator<AssetService>().clearProfilePhotoCache();
 
       // The guardian photo is mirrored into storage and is deliberately never
       // overwritten with an empty value on reload (see
@@ -691,8 +691,10 @@ class UserProfileCubit extends Cubit<UserProfileState> {
       );
       if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 100));
 
-      DocumentImageWidget.clearProfilePhotoCache(staffCode: staffCode);
-      DocumentImageWidget.markStaffPhotoUploaded(staffCode);
+      serviceLocator<AssetService>().clearProfilePhotoCache(
+        staffCode: staffCode,
+      );
+      serviceLocator<AssetService>().markStaffPhotoUploaded(staffCode);
       await loadStaffProfile(staffCode);
       return const UserProfilePhotoResult(
         UserProfilePhotoStatus.success,
@@ -792,7 +794,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
           );
       final resolvedUrl = photo.url;
 
-      DocumentImageWidget.clearProfilePhotoCache();
+      serviceLocator<AssetService>().clearProfilePhotoCache();
       // Persist the freshly-uploaded photo so the three-dot (kebab) menu header
       // (which reads these keys from storage) shows it immediately too.
       try {

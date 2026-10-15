@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/presentation/features/billing/view_model/billing_school_header_cubit.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// Shared school header for billing receipt/invoice screens: shows the real
 /// school logo-initials avatar, name, tagline, and address.
@@ -46,8 +46,7 @@ class _BillingSchoolHeaderState extends State<BillingSchoolHeader> {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              DocumentImageWidget(
-                fileUuid: '',
+              ProfileAvatar(
                 name: data.name,
                 size: widget.avatarSize,
                 fontSize: 18,

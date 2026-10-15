@@ -4,7 +4,8 @@ import 'package:wowcare/core/theme/app_theme_config.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import '../model/scheduling_models.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 
@@ -39,7 +40,7 @@ class SchedulingEntityLeftCell extends StatelessWidget {
   final String? mediaAssetCode;
   final String? staffCode;
 
-  /// When set, [DocumentImageWidget] resolves and shows the classroom logo.
+  /// When set, [ProfileAvatar] resolves and shows the classroom logo.
   final String? classroomCode;
   final String? placeholderAsset;
   final String? subtitle;
@@ -49,7 +50,7 @@ class SchedulingEntityLeftCell extends StatelessWidget {
   final bool showHours;
 
   /// Pre-resolved status dot color (e.g. green for SIGNED_IN, red for ABSENT)
-  /// — bypasses [DocumentImageWidget]'s built-in per-staff attendance API call
+  /// — bypasses [ProfileAvatar]'s built-in per-staff attendance API call
   /// in favor of a bulk lookup done at the screen level.
   final Color? statusColor;
   final String? statusTooltip;
@@ -73,55 +74,56 @@ class SchedulingEntityLeftCell extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
-          children: [
-            DocumentImageWidget(
-              fileUuid: imageFileUuid,
-              name: title,
-              mediaAssetCode: mediaAssetCode,
+        children: [
+          ProfileAvatar(
+            name: title,
+            assetCode: mediaAssetCode,
+            staffCode: staffCode,
+            classroomCode: classroomCode,
+            lookUpProfilePhoto:
+                !(mediaAssetCode != null && mediaAssetCode!.trim().isNotEmpty),
+            size: 38,
+            statusDot: AttendanceStatusDot(
               staffCode: staffCode,
-              classroomCode: classroomCode,
-              size: 38,
-              placeholderAsset: placeholderAsset ?? MediaRes.classroomIcon,
-              disableProfileLookupFallback: mediaAssetCode != null &&
-                  mediaAssetCode!.trim().isNotEmpty,
-              disableAttendanceStatusLookup: true,
-              statusColor: statusColor,
-              statusTooltip: statusTooltip,
+              color: statusColor,
+              tooltip: statusTooltip,
+              lookUp: false,
             ),
-            const SizedBox(height: 8),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: _nameStyle,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+            const SizedBox(height: 4),
             Text(
-              title,
-              style: _nameStyle,
+              subtitle!,
+              style: _subtitleStyle,
               textAlign: TextAlign.center,
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                subtitle!,
-                style: _subtitleStyle,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-            if (showHours &&
-                availableHours != null &&
-                scheduledHours != null &&
-                unscheduledHours != null) ...[
-              const SizedBox(height: 6),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.center,
-                child: _HoursBadge(
-                  availableHours: availableHours!,
-                  scheduledHours: scheduledHours!,
-                  unscheduledHours: unscheduledHours!,
-                ),
-              ),
-            ],
           ],
+          if (showHours &&
+              availableHours != null &&
+              scheduledHours != null &&
+              unscheduledHours != null) ...[
+            const SizedBox(height: 6),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.center,
+              child: _HoursBadge(
+                availableHours: availableHours!,
+                scheduledHours: scheduledHours!,
+                unscheduledHours: unscheduledHours!,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -166,18 +168,15 @@ Color? schedulingAttendanceDotColor(String? status) {
 
 String? schedulingAttendanceDotTooltip(String? status) {
   final normalized = (status ?? '').trim().toUpperCase();
-  if (normalized == 'SIGNED_IN' || normalized == 'SIGNED-IN') return 'Signed in';
+  if (normalized == 'SIGNED_IN' || normalized == 'SIGNED-IN')
+    return 'Signed in';
   if (normalized == 'ABSENT') return 'Absent';
   return null;
 }
 
 /// Staff row: photo → name → three hour chips on one line.
 class StaffRowLeft extends StatelessWidget {
-  const StaffRowLeft({
-    super.key,
-    required this.entry,
-    this.attendanceStatus,
-  });
+  const StaffRowLeft({super.key, required this.entry, this.attendanceStatus});
 
   final StaffScheduleEntry entry;
 

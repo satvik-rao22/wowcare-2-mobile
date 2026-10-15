@@ -29,7 +29,7 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
@@ -3790,18 +3790,16 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                     ),
                   ),
                 if (!widget.isGuardian) const SizedBox(width: AppSizes.xsPlus),
-                DocumentImageWidget(
-                  disableAttendanceStatusLookup: true,
-                  fileUuid: '',
+                ProfileAvatar(
+                  name: title,
                   imageUrl: widget.parentInfo.avatar.startsWith('http')
                       ? widget.parentInfo.avatar
                       : null,
-                  mediaAssetCode:
+                  assetCode:
                       widget.parentInfo.avatar.isNotEmpty &&
                           !widget.parentInfo.avatar.startsWith('http')
                       ? widget.parentInfo.avatar
                       : null,
-                  name: title,
                   size: 34,
                 ),
                 const SizedBox(width: AppSizes.xsPlus),

@@ -17,7 +17,7 @@ import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// The parent dashboard's attendance summary card for the selected child.
 /// Named apart from attendance's `StudentAttendanceCard`, which is a
@@ -121,13 +121,11 @@ class _StudentAttendanceSummaryCardState
               children: [
                 Stack(
                   children: [
-                    DocumentImageWidget(
-                      fileUuid: '',
+                    ProfileAvatar(
                       name: selectedChild.name,
+                      lookUpProfilePhoto: false,
                       size: 30,
                       fontSize: 12,
-                      disableProfileLookupFallback: true,
-                      disableAttendanceStatusLookup: true,
                     ),
                   ],
                 ),
@@ -177,13 +175,11 @@ class _StudentAttendanceSummaryCardState
                         children: [
                           Stack(
                             children: [
-                              DocumentImageWidget(
-                                fileUuid: '',
+                              ProfileAvatar(
                                 name: child.name,
+                                lookUpProfilePhoto: false,
                                 size: 30,
                                 fontSize: 12,
-                                disableProfileLookupFallback: true,
-                                disableAttendanceStatusLookup: true,
                               ),
                             ],
                           ),
@@ -213,13 +209,11 @@ class _StudentAttendanceSummaryCardState
                       value: child,
                       child: Row(
                         children: [
-                          DocumentImageWidget(
-                            fileUuid: '',
+                          ProfileAvatar(
                             name: child.name,
+                            lookUpProfilePhoto: false,
                             size: 26,
                             fontSize: 11,
-                            disableProfileLookupFallback: true,
-                            disableAttendanceStatusLookup: true,
                           ),
                           const SizedBox(width: 10),
                           Expanded(

@@ -7,6 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:wowcare/core/utils/string_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_list_entity.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
+import 'package:wowcare/core/utils/app_string_extension.dart';
 
 /// Builds invoice/receipt PDFs entirely on-device from data already loaded
 /// for the View Invoice / View Receipt screens — there is no backend PDF
@@ -59,7 +60,8 @@ class BillingPdfBuilder {
     final doc = pw.Document(theme: await _loadTheme());
     final classroom = (roomName ?? transaction.classroom).trim();
 
-    final invoiceNumber = (detail?.code ?? transaction.invoiceCode ?? '').trim();
+    final invoiceNumber = (detail?.code ?? transaction.invoiceCode ?? '')
+        .trim();
     final dueDate = detail?.dueDate ?? _tryParse(transaction.endDate);
     final periodStart = detail?.periodStart;
     final periodEnd = detail?.periodEnd;
@@ -86,11 +88,13 @@ class BillingPdfBuilder {
             ],
           ]
         : lineItems
-            .map((i) => [
+              .map(
+                (i) => [
                   i.description.isEmpty ? '-' : i.description,
                   '\$${i.totalPrice.toStringAsFixed(2)}',
-                ])
-            .toList();
+                ],
+              )
+              .toList();
 
     doc.addPage(
       pw.Page(
@@ -146,22 +150,26 @@ class BillingPdfBuilder {
                 2: pw.FlexColumnWidth(2),
               },
               children: [
-                pw.TableRow(children: [
-                  _headerCell('Description'),
-                  _headerCell('Mode', align: pw.TextAlign.center),
-                  _headerCell('Amount', align: pw.TextAlign.right),
-                ]),
-                pw.TableRow(children: [
-                  _bodyCell(transaction.displayDescription),
-                  _bodyCell(
-                    transaction.paymentMode ?? '-',
-                    align: pw.TextAlign.center,
-                  ),
-                  _bodyCell(
-                    '\$${transaction.amount.toStringAsFixed(2)}',
-                    align: pw.TextAlign.right,
-                  ),
-                ]),
+                pw.TableRow(
+                  children: [
+                    _headerCell('Description'),
+                    _headerCell('Mode', align: pw.TextAlign.center),
+                    _headerCell('Amount', align: pw.TextAlign.right),
+                  ],
+                ),
+                pw.TableRow(
+                  children: [
+                    _bodyCell(transaction.displayDescription),
+                    _bodyCell(
+                      transaction.paymentMode ?? '-',
+                      align: pw.TextAlign.center,
+                    ),
+                    _bodyCell(
+                      '\$${transaction.amount.toStringAsFixed(2)}',
+                      align: pw.TextAlign.right,
+                    ),
+                  ],
+                ),
               ],
             ),
             pw.SizedBox(height: 12),
@@ -188,7 +196,7 @@ class BillingPdfBuilder {
     String address,
   ) {
     final name = schoolName.isEmpty ? 'WowCare' : schoolName;
-    final initials = StringUtils.getInitials(name);
+    final initials = name.initials;
 
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -250,10 +258,7 @@ class BillingPdfBuilder {
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.center,
       children: [
-        pw.Text(
-          label,
-          style: pw.TextStyle(color: _primaryColor, fontSize: 15),
-        ),
+        pw.Text(label, style: pw.TextStyle(color: _primaryColor, fontSize: 15)),
         pw.SizedBox(width: 8),
         pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -285,25 +290,28 @@ class BillingPdfBuilder {
     return pw.Padding(
       padding: const pw.EdgeInsets.only(bottom: 6),
       child: pw.RichText(
-        text: pw.TextSpan(children: [
-          pw.TextSpan(
-            text: '$label : ',
-            style: pw.TextStyle(color: _mutedColor, fontSize: 14),
-          ),
-          pw.TextSpan(
-            text: value,
-            style: pw.TextStyle(
-              color: _primaryColor,
-              fontSize: 14,
-              fontWeight: pw.FontWeight.bold,
+        text: pw.TextSpan(
+          children: [
+            pw.TextSpan(
+              text: '$label : ',
+              style: pw.TextStyle(color: _mutedColor, fontSize: 14),
             ),
-          ),
-        ]),
+            pw.TextSpan(
+              text: value,
+              style: pw.TextStyle(
+                color: _primaryColor,
+                fontSize: 14,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  static pw.Widget _headerCell(String text, {pw.TextAlign? align}) => pw.Padding(
+  static pw.Widget _headerCell(String text, {pw.TextAlign? align}) =>
+      pw.Padding(
         padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 4),
         child: pw.Text(
           text,
@@ -313,17 +321,17 @@ class BillingPdfBuilder {
       );
 
   static pw.Widget _bodyCell(String text, {pw.TextAlign? align}) => pw.Padding(
-        padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-        child: pw.Text(
-          text,
-          textAlign: align,
-          style: pw.TextStyle(
-            fontSize: 14,
-            color: _primaryColor,
-            fontWeight: pw.FontWeight.bold,
-          ),
-        ),
-      );
+    padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+    child: pw.Text(
+      text,
+      textAlign: align,
+      style: pw.TextStyle(
+        fontSize: 14,
+        color: _primaryColor,
+        fontWeight: pw.FontWeight.bold,
+      ),
+    ),
+  );
 
   static pw.Widget _itemsTable(List<List<String>> rows, double total) {
     return pw.Column(
@@ -335,15 +343,19 @@ class BillingPdfBuilder {
             1: pw.FlexColumnWidth(2),
           },
           children: [
-            pw.TableRow(children: [
-              _headerCell('Description'),
-              _headerCell('Amount', align: pw.TextAlign.right),
-            ]),
+            pw.TableRow(
+              children: [
+                _headerCell('Description'),
+                _headerCell('Amount', align: pw.TextAlign.right),
+              ],
+            ),
             for (final row in rows)
-              pw.TableRow(children: [
-                _bodyCell(row[0]),
-                _bodyCell(row[1], align: pw.TextAlign.right),
-              ]),
+              pw.TableRow(
+                children: [
+                  _bodyCell(row[0]),
+                  _bodyCell(row[1], align: pw.TextAlign.right),
+                ],
+              ),
           ],
         ),
         pw.SizedBox(height: 12),

@@ -11,15 +11,26 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/utils/billing_school_time.dart';
 
 const _kStatementTypes = ['Monthly', 'Yearly', 'Custom Range'];
 
 const _kMonths = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 const _kApiStatementType = <String, String>{
@@ -86,8 +97,9 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
     final monthErr = _statementType == 'Monthly' && _selectedMonth == null;
     final yearErr =
         (_statementType == 'Monthly' || _statementType == 'Yearly') &&
-            _selectedYear == null;
-    final rangeErr = _statementType == 'Custom Range' &&
+        _selectedYear == null;
+    final rangeErr =
+        _statementType == 'Custom Range' &&
         (_customStart == null || _customEnd == null);
 
     setState(() {
@@ -297,8 +309,9 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
                       const TextSpan(text: BillingStrings.selectDateRange),
                       TextSpan(
                         text: ' *',
-                        style: AppTextStyles.small
-                            .copyWith(color: AppColors.errorColor),
+                        style: AppTextStyles.small.copyWith(
+                          color: AppColors.errorColor,
+                        ),
                       ),
                     ],
                   ),
@@ -351,17 +364,19 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
           if (_includeDescription) ...[
             const SizedBox(height: 10),
             Container(
-              constraints:
-                  BoxConstraints(minHeight: responsive.inputFieldHeight * 2.4),
-              decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
+              constraints: BoxConstraints(
+                minHeight: responsive.inputFieldHeight * 2.4,
+              ),
+              decoration: AppSurfaces.field(
+                radius: responsive.isTablet ? 12.0 : 8.0,
+              ),
               child: TextField(
                 controller: _descriptionController,
                 maxLines: null,
                 keyboardType: TextInputType.multiline,
                 decoration: InputDecoration(
                   hintText: BillingStrings.enterDescription,
-                  hintStyle:
-                      labelStyle.copyWith(color: AppColors.billingGrey),
+                  hintStyle: labelStyle.copyWith(color: AppColors.billingGrey),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(
                     horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -385,12 +400,12 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
   }
 
   Widget _errorWidget() => Padding(
-        padding: const EdgeInsets.only(top: 4, left: 2),
-        child: Text(
-          BillingStrings.thisFieldIsRequired,
-          style: AppTextStyles.small.copyWith(color: AppColors.errorColor),
-        ),
-      );
+    padding: const EdgeInsets.only(top: 4, left: 2),
+    child: Text(
+      BillingStrings.thisFieldIsRequired,
+      style: AppTextStyles.small.copyWith(color: AppColors.errorColor),
+    ),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -431,8 +446,7 @@ class _SelectedStudentsCard extends StatelessWidget {
           runSpacing: 10,
           children: children.map((child) {
             final code = (child.code ?? '').toString();
-            final name =
-                (child.fullName ?? child.name ?? '').toString();
+            final name = (child.fullName ?? child.name ?? '').toString();
             final isSelected = selectedCodes.contains(code);
 
             return InkWell(
@@ -446,8 +460,7 @@ class _SelectedStudentsCard extends StatelessWidget {
                       ? AppColors.billingSelectedTintColor
                       : AppColors.billingCardColor,
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -456,18 +469,22 @@ class _SelectedStudentsCard extends StatelessWidget {
                       value: isSelected,
                       onChanged: (_) => onToggle(code),
                     ),
-                    DocumentImageWidget(
-                      fileUuid: '',
+                    ProfileAvatar(
                       name: name,
                       studentCode: code.trim().isEmpty ? null : code.trim(),
                       size: 32,
                       fontSize: 14,
+                      statusDot: AttendanceStatusDot(
+                        studentCode: code.trim().isEmpty ? null : code.trim(),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 130),
                       child: Text(
-                        name.trim().isEmpty ? BillingStrings.student : name.trim(),
+                        name.trim().isEmpty
+                            ? BillingStrings.student
+                            : name.trim(),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.value.copyWith(

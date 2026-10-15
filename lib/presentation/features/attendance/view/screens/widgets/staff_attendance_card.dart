@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
@@ -138,12 +139,12 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
               padding: headerPadding.copyWith(top: 12, bottom: 12),
               child: Row(
                 children: [
-                  DocumentImageWidget(
-                    fileUuid: staff.staffPhotoUuid ?? '',
+                  ProfileAvatar(
                     name: staff.staffName,
                     staffCode: staff.id,
                     size: avatarSize,
                     fontSize: isTablet ? 18 : 16,
+                    statusDot: AttendanceStatusDot(staffCode: staff.id),
                   ),
                   SizedBox(width: spacing),
                   Expanded(
@@ -167,13 +168,13 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                                 const SizedBox(height: AppSpacing.s2),
                                 Text(
                                   staff.designationName!,
-                                  style: AppTextStyles.attendanceDesignationLabel(
-                                    isTablet: isTablet,
-                                  ).copyWith(
-                                    color: AppColors.primaryColor.withValues(
-                                      alpha: 0.6,
-                                    ),
-                                  ),
+                                  style:
+                                      AppTextStyles.attendanceDesignationLabel(
+                                        isTablet: isTablet,
+                                      ).copyWith(
+                                        color: AppColors.primaryColor
+                                            .withValues(alpha: 0.6),
+                                      ),
                                 ),
                               ],
                             ],

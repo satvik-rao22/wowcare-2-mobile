@@ -1,7 +1,8 @@
 import 'dart:io';
 
 import 'package:wowcare/core/utils/logger_service.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 import 'package:wowcare/shared/services/asset/profile_photo_upload_events.dart';
 import 'package:wowcare/shared/services/asset/profile_photo_uploader.dart';
 
@@ -38,8 +39,8 @@ class StaffPhotoBackgroundUploadService {
         schoolCode: schoolCode.trim(),
         organizationCode: organizationCode.trim(),
       );
-      DocumentImageWidget.clearProfilePhotoCache(staffCode: code);
-      DocumentImageWidget.markStaffPhotoUploaded(code);
+      serviceLocator<AssetService>().clearProfilePhotoCache(staffCode: code);
+      serviceLocator<AssetService>().markStaffPhotoUploaded(code);
       ProfilePhotoUploadEvents.notifyStaffUploaded();
       AppLogger.d('[photo] staff $code photo uploaded (bg)');
     } catch (e) {

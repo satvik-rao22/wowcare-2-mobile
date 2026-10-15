@@ -15,7 +15,8 @@ import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_h
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_collapsible.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 
 /// "My Attendance" dashboard card: header, date-range picker, profile row and
 /// stat tiles, driven by [MyAttendanceCubit]. Shimmer on first load only.
@@ -226,12 +227,14 @@ class _AttendanceReportColumn extends StatelessWidget {
         // ── Profile row ──────────────────────────────────────────────────
         Row(
           children: [
-            DocumentImageWidget(
-              fileUuid: '',
-              staffCode: staffCode.isNotEmpty ? staffCode : null,
+            ProfileAvatar(
               name: displayName,
+              staffCode: staffCode.isNotEmpty ? staffCode : null,
               size: 80,
               fontSize: 28,
+              statusDot: AttendanceStatusDot(
+                staffCode: staffCode.isNotEmpty ? staffCode : null,
+              ),
             ),
             const SizedBox(width: 24),
             Expanded(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
@@ -108,16 +109,20 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
               padding: headerPadding.copyWith(top: 12, bottom: 12),
               child: Row(
                 children: [
-                  DocumentImageWidget(
-                    fileUuid: staff.photoUuid ?? '',
+                  ProfileAvatar(
                     name: staff.name,
                     staffCode: (staff.staffCode ?? '').trim().isNotEmpty
                         ? staff.staffCode
                         : staff.id,
                     size: avatarSize,
                     fontSize: isTablet ? 18 : 16,
-                    disableAttendanceStatusLookup:
-                        widget.disableAttendanceStatusLookup,
+                    statusDot: (widget.disableAttendanceStatusLookup)
+                        ? null
+                        : AttendanceStatusDot(
+                            staffCode: (staff.staffCode ?? '').trim().isNotEmpty
+                                ? staff.staffCode
+                                : staff.id,
+                          ),
                   ),
                   SizedBox(width: spacing),
                   Expanded(

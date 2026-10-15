@@ -4,7 +4,7 @@ import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// Photo + name (+ optional subtitle) header card shown atop
 /// student_edit_attendance_form.dart and staff_edit_attendance_form.dart —
@@ -33,12 +33,7 @@ class AttendanceEditHeaderCard extends StatelessWidget {
       child: Row(
         children: [
           const SizedBox(width: AppSpacing.xxs),
-          DocumentImageWidget(
-            fileUuid: photoUuid ?? '',
-            name: name,
-            size: 36,
-            fontSize: 14,
-          ),
+          ProfileAvatar(name: name, size: 36, fontSize: 14),
           const SizedBox(width: AppSpacing.xs),
           Expanded(
             child: Column(

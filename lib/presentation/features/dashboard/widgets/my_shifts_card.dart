@@ -19,7 +19,7 @@ import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_s
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_day_schedule_calendar.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_schedule_tile.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// "My Shifts" card for dashboard. Shows staff profile, hour summary tiles, and full calendar.
 /// Matches the visual style of StaffSchedulingScreen exactly.
@@ -408,14 +408,11 @@ class _MyShiftsStaffProfileHeader extends StatelessWidget {
     return Row(
       children: [
         // ── Circular Profile Photo ─────────────────────────────────────────
-        DocumentImageWidget(
-          fileUuid: staffCode,
+        ProfileAvatar(
           name: staffName,
           staffCode: staffCode.isNotEmpty ? staffCode : null,
           size: 80,
           fontSize: 28,
-          disableProfileLookupFallback: false,
-          disableAttendanceStatusLookup: true,
         ),
 
         const SizedBox(width: 24),

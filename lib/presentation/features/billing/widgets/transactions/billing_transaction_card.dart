@@ -8,7 +8,7 @@ import 'package:wowcare/presentation/features/billing/view_model/transaction_car
 import 'package:wowcare/presentation/features/billing/widgets/billing_student_vertical_popup.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
@@ -316,13 +316,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
           ),
           const SizedBox(width: 8),
         ],
-        DocumentImageWidget(
-          fileUuid: widget.transaction.studentPhotoUuid ?? '',
-          name: widget.transaction.studentName,
-          size: 50,
-          shape: BoxShape.circle,
-          fit: BoxFit.cover,
-        ),
+        ProfileAvatar(name: widget.transaction.studentName, size: 50),
         const SizedBox(width: 10),
         Expanded(
           child: Column(

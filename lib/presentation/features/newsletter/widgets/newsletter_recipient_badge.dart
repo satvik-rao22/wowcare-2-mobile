@@ -4,7 +4,7 @@ import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// The recipient-count badge on a newsletter list card, and the bottom sheet
 /// it opens.
@@ -27,19 +27,19 @@ class NewsletterRecipientCountBadge extends StatelessWidget {
   List<NewsletterRecipientSummary> _recipientItems() {
     if (recipients.isNotEmpty) {
       final seen = <String>{};
-      final items = recipients.where((NewsletterRecipientSummary recipient) {
-        final displayName = recipient.displayName.trim();
-        if (displayName.isEmpty) return false;
-        final code = recipient.userCode.trim();
-        final key = code.isNotEmpty ? code : displayName.toLowerCase();
-        return seen.add(key);
-      }).toList()
-        ..sort(
-          (NewsletterRecipientSummary a, NewsletterRecipientSummary b) =>
-              a.displayName.toLowerCase().compareTo(
-                    b.displayName.toLowerCase(),
-                  ),
-        );
+      final items =
+          recipients.where((NewsletterRecipientSummary recipient) {
+            final displayName = recipient.displayName.trim();
+            if (displayName.isEmpty) return false;
+            final code = recipient.userCode.trim();
+            final key = code.isNotEmpty ? code : displayName.toLowerCase();
+            return seen.add(key);
+          }).toList()..sort(
+            (NewsletterRecipientSummary a, NewsletterRecipientSummary b) => a
+                .displayName
+                .toLowerCase()
+                .compareTo(b.displayName.toLowerCase()),
+          );
       return items;
     }
 
@@ -48,17 +48,13 @@ class NewsletterRecipientCountBadge extends StatelessWidget {
         .where((String name) => name.isNotEmpty)
         .toSet()
         .map(
-          (String name) => NewsletterRecipientSummary(
-            displayName: name,
-            userCode: '',
-          ),
+          (String name) =>
+              NewsletterRecipientSummary(displayName: name, userCode: ''),
         )
         .toList()
       ..sort(
         (NewsletterRecipientSummary a, NewsletterRecipientSummary b) =>
-            a.displayName.toLowerCase().compareTo(
-                  b.displayName.toLowerCase(),
-                ),
+            a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()),
       );
   }
 
@@ -85,7 +81,12 @@ class NewsletterRecipientCountBadge extends StatelessWidget {
               children: [
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(AppSizes.lg, AppSizes.sm, AppSizes.sm, AppSizes.md),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSizes.lg,
+                    AppSizes.sm,
+                    AppSizes.sm,
+                    AppSizes.md,
+                  ),
                   decoration: const BoxDecoration(
                     color: AppColors.brandSoftColor,
                     borderRadius: BorderRadius.vertical(
@@ -136,8 +137,7 @@ class NewsletterRecipientCountBadge extends StatelessWidget {
                               children: [
                                 const Text(
                                   AppStrings.newsletterRecipients,
-                                  style: AppTextStyles
-                                      .newsletterRecipientCount,
+                                  style: AppTextStyles.newsletterRecipientCount,
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
@@ -164,8 +164,7 @@ class NewsletterRecipientCountBadge extends StatelessWidget {
                     constraints: BoxConstraints(
                       // §7.6: `sizeOf`, not `of`. Same value, but the
                       // sheet no longer rebuilds when only the insets change.
-                      maxHeight:
-                          MediaQuery.sizeOf(sheetContext).height * 0.55,
+                      maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.55,
                     ),
                     child: items.isEmpty
                         ? const Padding(
@@ -177,14 +176,18 @@ class NewsletterRecipientCountBadge extends StatelessWidget {
                               child: Text(
                                 AppStrings.newsletterRecipientsUnavailable,
                                 textAlign: TextAlign.center,
-                                style: AppTextStyles
-                                    .newsletterRecipientName,
+                                style: AppTextStyles.newsletterRecipientName,
                               ),
                             ),
                           )
                         : ListView.separated(
                             shrinkWrap: true,
-                            padding: const EdgeInsets.fromLTRB(AppSizes.lg, AppSizes.sm, AppSizes.lg, AppSizes.lg),
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSizes.lg,
+                              AppSizes.sm,
+                              AppSizes.lg,
+                              AppSizes.lg,
+                            ),
                             itemCount: items.length,
                             separatorBuilder: (_, __) => Divider(
                               height: 1,
@@ -256,12 +259,10 @@ class _RecipientListTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: AppSizes.xsPlus),
       child: Row(
         children: [
-          DocumentImageWidget(
-            fileUuid: code.isNotEmpty ? code : name,
+          ProfileAvatar(
             name: name,
             studentCode: code.isNotEmpty ? code : null,
             size: 40,
-            disableAttendanceStatusLookup: true,
           ),
           const SizedBox(width: AppSizes.sm),
           Expanded(

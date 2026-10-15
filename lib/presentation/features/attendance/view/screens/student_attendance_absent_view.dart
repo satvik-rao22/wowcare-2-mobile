@@ -24,7 +24,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/utils/attendance_classroom_scope.dart';
@@ -1010,13 +1010,11 @@ class _AbsentStudentCardItem extends StatelessWidget {
             Row(
               children: [
                 // Profile photo
-                DocumentImageWidget(
-                  fileUuid: student.photoUuid ?? '',
+                ProfileAvatar(
+                  name: student.name,
                   studentCode: student.id,
                   size: avatarSize,
-                  name: student.name,
                   fontSize: responsive.isTablet ? 18 : 16,
-                  disableAttendanceStatusLookup: true,
                 ),
                 SizedBox(width: spacing),
                 // Header matches staff_card.dart: name (left) + classroom (right).

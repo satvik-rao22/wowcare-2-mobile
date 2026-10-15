@@ -11,7 +11,8 @@ import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 
 class IndividualMovementFilterCard extends StatelessWidget {
   const IndividualMovementFilterCard({
@@ -539,15 +540,19 @@ class _MovementRow extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: <Widget>[
-                DocumentImageWidget(
-                  fileUuid: item.studentCode,
+                ProfileAvatar(
+                  name: item.name,
+                  assetCode: item.profilePhotoAssetCode,
                   studentCode: item.studentCode.trim().isNotEmpty
                       ? item.studentCode.trim()
                       : null,
-                  mediaAssetCode: item.profilePhotoAssetCode,
-                  name: item.name,
                   size: 30,
                   fontSize: 11,
+                  statusDot: AttendanceStatusDot(
+                    studentCode: item.studentCode.trim().isNotEmpty
+                        ? item.studentCode.trim()
+                        : null,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(

@@ -30,7 +30,8 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
@@ -1016,8 +1017,8 @@ class _StaffProfileHeader extends StatelessWidget {
   final String? profilePhotoAssetCode;
 
   /// Employment status from `/staff/staff` (`ACTIVE`, `UPCOMING`, …). Forwarded
-  /// to [DocumentImageWidget] which paints a mustard dot for `UPCOMING`; the
-  /// [DocumentImageWidget.statusColor] fallback keeps the legacy green dot for
+  /// to [ProfileAvatar] which paints a mustard dot for `UPCOMING`; the
+  /// [ProfileAvatar.statusColor] fallback keeps the legacy green dot for
   /// every other status.
   final String? status;
 
@@ -1025,7 +1026,7 @@ class _StaffProfileHeader extends StatelessWidget {
   /// POST `/staff-attendance/sign-in/status`. SIGNED_IN paints green, ABSENT
   /// paints red; NOT_MARKED (or any other status) renders no dot at all —
   /// UPCOMING-employment staff still get the mustard dot via
-  /// [DocumentImageWidget.staffEmploymentStatus].
+  /// [ProfileAvatar.staffEmploymentStatus].
   final String? attendanceStatus;
 
   @override
@@ -1034,20 +1035,22 @@ class _StaffProfileHeader extends StatelessWidget {
     final attendanceTooltip = schedulingAttendanceDotTooltip(attendanceStatus);
     return Row(
       children: [
-        DocumentImageWidget(
-          fileUuid: staffCode,
+        ProfileAvatar(
           name: staffName,
-          mediaAssetCode: profilePhotoAssetCode,
+          assetCode: profilePhotoAssetCode,
           staffCode: staffCode,
-          staffEmploymentStatus: status,
-          statusColor: attendanceDot,
-          statusTooltip: attendanceTooltip,
+          lookUpProfilePhoto:
+              !(profilePhotoAssetCode != null &&
+                  profilePhotoAssetCode!.isNotEmpty),
           size: 80,
           fontSize: 28,
-          disableProfileLookupFallback:
-              profilePhotoAssetCode != null &&
-              profilePhotoAssetCode!.isNotEmpty,
-          disableAttendanceStatusLookup: true,
+          statusDot: AttendanceStatusDot(
+            staffCode: staffCode,
+            profileStatus: status,
+            color: attendanceDot,
+            tooltip: attendanceTooltip,
+            lookUp: false,
+          ),
         ),
         const SizedBox(width: 24),
         Expanded(

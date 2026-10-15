@@ -48,7 +48,7 @@ import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 
@@ -339,7 +339,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     final visible = guardianRules
         ? messages.where((m) {
             if (m.isPrivate) return m.privateParentUserCode == _senderCode;
-            if (roomPrivate && m.senderCode != _senderCode && !_isStaffSide(m)) {
+            if (roomPrivate &&
+                m.senderCode != _senderCode &&
+                !_isStaffSide(m)) {
               return false;
             }
             return true;
@@ -1065,23 +1067,22 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         children: [
           Row(
             children: [
-              DocumentImageWidget(
-                disableAttendanceStatusLookup: true,
+              ProfileAvatar(
                 // Stable across every BlocConsumer rebuild (pull-to-refresh,
                 // new messages, …) so its element — and therefore its
                 // internally-resolved photo/initials state — is never torn
                 // down and recreated from scratch by an unrelated state
                 // change.
                 key: ValueKey('thread-header-avatar-${_conversation.code}'),
-                fileUuid: '',
+                name: title,
+
                 // `avatarUrl` is either a resolved URL or a raw media-asset
                 // code depending on which screen started the conversation.
                 imageUrl: headerAvatar.startsWith('http') ? headerAvatar : null,
-                mediaAssetCode: headerAvatar.startsWith('http')
+                assetCode: headerAvatar.startsWith('http')
                     ? null
                     : (headerAvatar.isNotEmpty ? headerAvatar : null),
                 studentCode: _conversation.studentCode,
-                name: title,
                 size: 36,
                 fontSize: 15,
               ),
@@ -1269,14 +1270,12 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            DocumentImageWidget(
-                              disableAttendanceStatusLookup: true,
-                              fileUuid: '',
+                            ProfileAvatar(
+                              name: name,
                               imageUrl: avatar.imageUrl,
-                              mediaAssetCode: avatar.mediaAssetCode,
+                              assetCode: avatar.mediaAssetCode,
                               staffCode: avatar.staffCode,
                               userCode: avatar.userCode,
-                              name: name,
                               size: 16,
                               fontSize: 9,
                             ),
@@ -1989,7 +1988,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                           ),
                         ),
                         Container(
-                          decoration: AppSurfaces.card(borderRadius: const BorderRadius.vertical( bottom: Radius.circular(12), )),
+                          decoration: AppSurfaces.card(
+                            borderRadius: const BorderRadius.vertical(
+                              bottom: Radius.circular(12),
+                            ),
+                          ),
                           child: SafeArea(
                             top: false,
                             // Only the composer rebuilds on quote/edit/attachment

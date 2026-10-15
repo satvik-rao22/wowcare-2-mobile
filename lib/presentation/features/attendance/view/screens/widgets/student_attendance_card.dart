@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
@@ -140,12 +141,14 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
               padding: headerPadding.copyWith(top: 12, bottom: 12),
               child: Row(
                 children: [
-                  DocumentImageWidget(
-                    fileUuid: student.studentPhotoUuid ?? '',
+                  ProfileAvatar(
                     name: student.studentName,
                     studentCode: student.studentCode,
                     size: avatarSize,
                     fontSize: isTablet ? 18 : 16,
+                    statusDot: AttendanceStatusDot(
+                      studentCode: student.studentCode,
+                    ),
                   ),
                   SizedBox(width: spacing),
                   Expanded(

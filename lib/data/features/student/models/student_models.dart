@@ -333,8 +333,8 @@ class StudentImportantDatesModel extends Equatable {
   /// Null-safe wrapper around the generated fromJson (the caller may pass null).
   factory StudentImportantDatesModel.fromJson(Map<String, dynamic>? json) =>
       json == null
-          ? const StudentImportantDatesModel()
-          : _$StudentImportantDatesModelFromJson(json);
+      ? const StudentImportantDatesModel()
+      : _$StudentImportantDatesModelFromJson(json);
 
   Map<String, dynamic> toJson() => _$StudentImportantDatesModelToJson(this);
 
@@ -366,7 +366,8 @@ class StudentHealthModel extends Equatable {
   final bool? photoPermission;
 
   /// Null-safe wrapper around the generated fromJson.
-  factory StudentHealthModel.fromJson(Map<String, dynamic>? json) => json == null
+  factory StudentHealthModel.fromJson(Map<String, dynamic>? json) =>
+      json == null
       ? const StudentHealthModel()
       : _$StudentHealthModelFromJson(json);
 
@@ -493,7 +494,7 @@ class StudentGuardianModel extends Equatable {
   final String? profilePhotoUrl;
 
   /// Document-MS asset code for the profile photo, when the backend returns a
-  /// code instead of a ready URL (resolved to a URL by [DocumentImageWidget]).
+  /// code instead of a ready URL (resolved to a URL by [ProfileAvatar]).
   final String? profilePhotoAssetCode;
 
   /// Set by [fromJson] only when [firstName]/[lastName] are both empty but a

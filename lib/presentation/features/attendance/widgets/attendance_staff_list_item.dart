@@ -4,7 +4,8 @@ import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 
 import '../model/staff_entity.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -52,13 +53,15 @@ class AttendanceStaffListItem extends StatelessWidget {
                   onChanged: onSelectionChanged,
                 ),
               ),
-              DocumentImageWidget(
-                fileUuid: staff.photoUuid ?? '',
+              ProfileAvatar(
                 name: staff.name,
                 staffCode: staff.staffCode,
-                showOnlyAbsentAttendanceDot: showOnlyAbsentAttendanceDot,
                 size: 32,
                 fontSize: 14,
+                statusDot: AttendanceStatusDot(
+                  staffCode: staff.staffCode,
+                  onlyAbsent: showOnlyAbsentAttendanceDot,
+                ),
               ),
               const SizedBox(width: AppSpacing.xs),
               Expanded(

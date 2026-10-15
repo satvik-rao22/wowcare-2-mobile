@@ -29,7 +29,7 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_direct_messaging_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
@@ -452,7 +452,12 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
     if (context.watch<RoleCubit>().isParent) {
       return const GlobalScaffold(
         hasBackButton: false,
-        bodyPadding: EdgeInsets.fromLTRB(AppSizes.sm, AppSizes.xs, AppSizes.sm, AppSizes.xs),
+        bodyPadding: EdgeInsets.fromLTRB(
+          AppSizes.sm,
+          AppSizes.xs,
+          AppSizes.sm,
+          AppSizes.xs,
+        ),
         // This route (/admin-chat) is registered OUTSIDE the shell's
         // StatefulShellRoute, so the nav bar's own route-derived resolution
         // can't find a shell ancestor and would otherwise show nothing (or,
@@ -506,7 +511,12 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
 
                           // ── Search + filter bar ───────────────────────────────────
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(AppSizes.md, AppSizes.xs, AppSizes.md, 0),
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSizes.md,
+                              AppSizes.xs,
+                              AppSizes.md,
+                              0,
+                            ),
                             child: Row(
                               children: [
                                 Expanded(
@@ -517,7 +527,8 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
                                     ),
                                     child: CustomSearchBar(
                                       controller: _searchController,
-                                      hintText: AppStrings.searchConversationsEllipsis,
+                                      hintText: AppStrings
+                                          .searchConversationsEllipsis,
                                     ),
                                   ),
                                 ),
@@ -537,14 +548,17 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
                                           .refresh();
                                       CoreUtils.showTopSnackBar(
                                         context: context,
-                                        message: AppStrings.refreshingConversations,
+                                        message:
+                                            AppStrings.refreshingConversations,
                                         duration: const Duration(
                                           milliseconds: 1200,
                                         ),
                                       );
                                     },
                                     child: Container(
-                                      padding: const EdgeInsets.all(AppSizes.xsPlus),
+                                      padding: const EdgeInsets.all(
+                                        AppSizes.xsPlus,
+                                      ),
                                       decoration: BoxDecoration(
                                         borderRadius: BorderRadius.circular(12),
                                         color: AppColors.messagingSearchFieldBg,
@@ -569,7 +583,9 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
                                     onTap: _showFilterSheet,
                                     borderRadius: BorderRadius.circular(100),
                                     child: Padding(
-                                      padding: const EdgeInsets.all(AppSizes.xs),
+                                      padding: const EdgeInsets.all(
+                                        AppSizes.xs,
+                                      ),
                                       child: Stack(
                                         clipBehavior: Clip.none,
                                         children: [
@@ -582,7 +598,8 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
                                                 width: 8,
                                                 height: 8,
                                                 decoration: const BoxDecoration(
-                                                  color: AppColors.messagingNotificationDot,
+                                                  color: AppColors
+                                                      .messagingNotificationDot,
                                                   shape: BoxShape.circle,
                                                 ),
                                               ),
@@ -598,7 +615,12 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
 
                           // ── Unread toggle + clear chip ────────────────────────────
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(AppSizes.md, AppSizes.xs, AppSizes.md, 0),
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSizes.md,
+                              AppSizes.xs,
+                              AppSizes.md,
+                              0,
+                            ),
                             child: Row(
                               children: [
                                 CustomToggle(
@@ -674,7 +696,9 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
                                     KeyedSubtree(
                                       key: const ValueKey('conversations_list'),
                                       child: _ConversationSliverList(
-                                        filtered: _filtered(state.conversations),
+                                        filtered: _filtered(
+                                          state.conversations,
+                                        ),
                                         showUnreadOnly: _showUnreadOnly.value,
                                         searchText: _searchController.text,
                                         onOpenThread: _openThread,
@@ -764,7 +788,12 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
       SliverToBoxAdapter(
         key: const ValueKey('start_new_chat_header'),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(AppSizes.lg, AppSizes.md, AppSizes.lg, AppSizes.xxs),
+          padding: const EdgeInsets.fromLTRB(
+            AppSizes.lg,
+            AppSizes.md,
+            AppSizes.lg,
+            AppSizes.xxs,
+          ),
           child: Text(
             AppStrings.startNewChat(contacts.length),
             style: AppTextStyles.size14.copyWith(
@@ -795,7 +824,10 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
                 decoration: const BoxDecoration(
                   color: AppColors.cardColor,
                   border: Border(
-                    bottom: BorderSide(color: AppColors.messagingDividerLight, width: 1),
+                    bottom: BorderSide(
+                      color: AppColors.messagingDividerLight,
+                      width: 1,
+                    ),
                   ),
                 ),
                 padding: const EdgeInsets.symmetric(
@@ -804,12 +836,10 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
                 ),
                 child: Row(
                   children: [
-                    DocumentImageWidget(
-                      disableAttendanceStatusLookup: true,
-                      fileUuid: '',
+                    ProfileAvatar(
+                      name: name,
                       imageUrl: student.profileImage,
                       studentCode: student.code,
-                      name: name,
                       size: 44,
                     ),
                     const SizedBox(width: AppSizes.sm),
@@ -859,5 +889,4 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
       ),
     ];
   }
-
 }

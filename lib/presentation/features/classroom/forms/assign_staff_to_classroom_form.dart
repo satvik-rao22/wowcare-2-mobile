@@ -16,13 +16,14 @@ import 'package:wowcare/presentation/features/classroom/view_model/assign_staff_
 import 'package:wowcare/presentation/features/classroom/view_model/assign_staff_selection_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/assign_staff_selection_state.dart';
 import 'package:wowcare/presentation/features/classroom/forms/widgets/assign_classroom_form_widgets.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 
 /// [StaffClassroomItem.profilePictureUrl] can hold either a full URL or a
-/// bare media asset code — [DocumentImageWidget] needs to know which.
+/// bare media asset code — [ProfileAvatar] needs to know which.
 bool _looksLikeUrl(String raw) =>
     raw.startsWith('http://') || raw.startsWith('https://');
 
@@ -330,15 +331,13 @@ class _StaffConfirmationView extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          DocumentImageWidget(
-                            fileUuid: '',
-                            imageUrl: _staffImageUrl(staff),
-                            mediaAssetCode: _staffAssetCode(staff),
+                          ProfileAvatar(
                             name: staff.fullName,
+                            imageUrl: _staffImageUrl(staff),
+                            assetCode: _staffAssetCode(staff),
                             staffCode: staff.staffCode,
                             size: 32,
                             fontSize: 12,
-                            disableAttendanceStatusLookup: true,
                           ),
                           const SizedBox(width: 6),
                           Expanded(
@@ -471,17 +470,19 @@ class StaffListItem extends StatelessWidget {
                     onChanged: isSignedIn ? null : onSelectionChanged,
                   ),
                 ),
-                DocumentImageWidget(
-                  fileUuid: '',
-                  imageUrl: _staffImageUrl(staff),
-                  mediaAssetCode: _staffAssetCode(staff),
+                ProfileAvatar(
                   name: staff.fullName,
+                  imageUrl: _staffImageUrl(staff),
+                  assetCode: _staffAssetCode(staff),
                   staffCode: staff.staffCode,
                   size: 32,
                   fontSize: 12,
-                  statusColor: _attendanceDotColor,
-                  statusTooltip: _attendanceTooltip,
-                  disableAttendanceStatusLookup: true,
+                  statusDot: AttendanceStatusDot(
+                    staffCode: staff.staffCode,
+                    color: _attendanceDotColor,
+                    tooltip: _attendanceTooltip,
+                    lookUp: false,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(

@@ -15,7 +15,7 @@ import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/core/extensions/messaging_time_formatter.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/utils/school_switch_events.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/src/app_router.dart' show AppRoutes;
 
 /// Shows the logged-in user's latest conversations (up to 2) using the same row
@@ -48,12 +48,11 @@ class MyDayChatPreviewRow extends StatelessWidget {
       builder: (context, epoch, _) => BlocProvider<ChatPreviewCubit>(
         key: ValueKey('chat-preview-$role-$resolved-$epoch'),
         // §5.4: constructed here, loaded once per persona/scope key.
-        create: (context) =>
-            serviceLocator<ChatPreviewCubit>()
-              ..load(
-                isGuardianViewer: context.read<RoleCubit>().isParent,
-                isStaffViewer: context.read<RoleCubit>().isStaff,
-              ),
+        create: (context) => serviceLocator<ChatPreviewCubit>()
+          ..load(
+            isGuardianViewer: context.read<RoleCubit>().isParent,
+            isStaffViewer: context.read<RoleCubit>().isStaff,
+          ),
         child: const _ChatPreviewRowView(),
       ),
     );
@@ -230,13 +229,11 @@ class _RecentChatRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            DocumentImageWidget(
-              fileUuid: conversation.avatarUrl,
+            ProfileAvatar(
               name: displayTitle,
+              lookUpProfilePhoto: false,
               size: 50,
               fontSize: 20,
-              disableProfileLookupFallback: true,
-              disableAttendanceStatusLookup: true,
             ),
             const SizedBox(width: 16),
             Expanded(

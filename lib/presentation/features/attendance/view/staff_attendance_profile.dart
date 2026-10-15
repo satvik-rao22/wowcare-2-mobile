@@ -12,7 +12,8 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_profile_field.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_profile_stat_widgets.dart';
@@ -915,10 +916,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     if (path == null || !mounted) return;
     // `popOnSuccess` keeps the user on this profile screen after a successful
     // action instead of redirecting to the Attendance daily tab.
-    await context.push(
-      path,
-      extra: {'staff': entity, 'popOnSuccess': true},
-    );
+    await context.push(path, extra: {'staff': entity, 'popOnSuccess': true});
     if (!mounted) return;
     await refreshData();
   }
@@ -1484,13 +1482,14 @@ class _StaffCard extends StatelessWidget {
             Row(
               children: [
                 const SizedBox(width: AppSpacing.s5),
-                DocumentImageWidget(
-                  fileUuid: currentStaff.photoUuid ?? '',
-                  size: 80,
+                ProfileAvatar(
                   name: currentStaff.name,
-                  fontSize: 24,
+
                   // Drive status dot purely from attendance API using staffCode.
                   staffCode: staffCode,
+                  size: 80,
+                  fontSize: 24,
+                  statusDot: AttendanceStatusDot(staffCode: staffCode),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(

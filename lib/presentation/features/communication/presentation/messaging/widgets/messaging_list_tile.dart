@@ -8,7 +8,7 @@ import 'package:wowcare/domain/features/communication/policies/conversation_disp
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/core/extensions/messaging_time_formatter.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 class MessagingListTile extends StatelessWidget {
   final Conversation conversation;
@@ -83,7 +83,10 @@ class MessagingListTile extends StatelessWidget {
         decoration: const BoxDecoration(
           color: AppColors.cardColor,
           border: Border(
-            bottom: BorderSide(color: AppColors.messagingDividerLight, width: 1),
+            bottom: BorderSide(
+              color: AppColors.messagingDividerLight,
+              width: 1,
+            ),
           ),
         ),
         child: ListTile(
@@ -110,15 +113,16 @@ class MessagingListTile extends StatelessWidget {
                 ),
               ],
             ),
-            child: DocumentImageWidget(
-              disableAttendanceStatusLookup: true,
-              fileUuid: '',
+            child: ProfileAvatar(
+              name: displayName,
+
               // `avatarUrl` is either a resolved URL or a raw media-asset
               // code depending on which screen started the conversation.
               imageUrl: displayAvatar.startsWith('http') ? displayAvatar : null,
-              mediaAssetCode: displayAvatar.startsWith('http')
+              assetCode: displayAvatar.startsWith('http')
                   ? null
                   : (displayAvatar.isEmpty ? null : displayAvatar),
+
               // The conversation payload carries no photo for most staff
               // counterparts (and no `staffCode` either — the backend
               // doesn't send one yet), which is why every staff-messaging
@@ -129,7 +133,6 @@ class MessagingListTile extends StatelessWidget {
               userCode: (counterpart?.staffCode ?? '').trim().isEmpty
                   ? counterpart?.userCode
                   : null,
-              name: displayName,
               size: 52,
             ),
           ),

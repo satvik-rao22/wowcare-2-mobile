@@ -4,7 +4,7 @@
 // import '../../../core/theme/app_colors.dart';
 // import '../../../core/theme/app_media_res.dart';
 // import '../../../presentation/features/attendance/view/student_attendance_forms/student_sign_in_form.dart';
-// import 'profile_show_widget.dart';
+// import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 // class RemoveStudentTile extends StatelessWidget {
 //   final StudentEntity student;
@@ -33,7 +33,7 @@
 //               children: [
 //                 BlocProvider(
 //                   create: (context) => sl<DocumentBloc>(),
-//                   child: DocumentImageWidget(
+//                   child: ProfileAvatar(
 //                     fileUuid: student.photoUuid,
 //                     size: 30,
 //                     name: student.fullName,

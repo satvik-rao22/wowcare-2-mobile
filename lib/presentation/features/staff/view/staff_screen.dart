@@ -13,7 +13,7 @@ import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_card.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -976,7 +976,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                             // so the green indicator reflects the
                                             // latest status for the new results.
                                             if (mounted) {
-                                              DocumentImageWidget.refreshAttendanceStatusDots();
+                                              AttendanceStatusDot.refreshAll();
                                             }
                                           }
                                         },
@@ -1053,8 +1053,8 @@ class _StaffScreenState extends State<StaffScreen> {
                                                           vertical: 2,
                                                         ),
                                                     decoration: BoxDecoration(
-                                                      color:
-                                                          AppPalette.statusErrorStrong,
+                                                      color: AppPalette
+                                                          .statusErrorStrong,
                                                       borderRadius:
                                                           BorderRadius.circular(
                                                             10,
@@ -1166,7 +1166,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                             if (!mounted) return;
                                             // Re-sync attendance dots for the
                                             // newly loaded (in)active list.
-                                            DocumentImageWidget.refreshAttendanceStatusDots();
+                                            AttendanceStatusDot.refreshAll();
                                             final err =
                                                 staffCubit.state.errorMessage;
                                             if (err != null && err.isNotEmpty) {

@@ -26,7 +26,7 @@ import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/full_attachment_viewer.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
@@ -44,7 +44,7 @@ class MessageBubble extends StatefulWidget {
   /// Conversation participants — used to resolve the sender's real avatar
   /// (imageUrl/staffCode) for the Parent Messaging sender header. Without
   /// this, the header row has only [Message.senderName], which
-  /// [DocumentImageWidget] cannot resolve a photo from, so it always fell
+  /// [ProfileAvatar] cannot resolve a photo from, so it always fell
   /// back to initials even when the sender has a real profile photo.
   final List<ConversationParticipant>? participants;
   final ReactionsController reactionsController;
@@ -820,8 +820,7 @@ class _MessageBubbleState extends State<MessageBubble>
                                           widget.message.senderUserCode,
                                       role: sender?.role,
                                     );
-                                    return DocumentImageWidget(
-                                      disableAttendanceStatusLookup: true,
+                                    return ProfileAvatar(
                                       // Scoped to this specific message so a
                                       // list rebuild (pagination merge,
                                       // pull-to-refresh) can never let this
@@ -831,12 +830,11 @@ class _MessageBubbleState extends State<MessageBubble>
                                       key: ValueKey(
                                         'msg-sender-avatar-${widget.message.code}',
                                       ),
-                                      fileUuid: '',
+                                      name: widget.message.senderName ?? '',
                                       imageUrl: avatar.imageUrl,
-                                      mediaAssetCode: avatar.mediaAssetCode,
+                                      assetCode: avatar.mediaAssetCode,
                                       staffCode: avatar.staffCode,
                                       userCode: avatar.userCode,
-                                      name: widget.message.senderName ?? '',
                                       size: 20,
                                       fontSize: 10,
                                     );

@@ -3,9 +3,9 @@ import 'package:wowcare/modules/attendance_v2/core/theme/av2_colors.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_spacing.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_text_styles.dart';
 import 'package:wowcare/modules/attendance_v2/core/utils/av2_date_formatter.dart';
-import 'package:wowcare/modules/attendance_v2/presentation/widgets/av2_avatar.dart';
 
 import '../../domain/entities/missed_signout.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// One staff member in the bulk sign-in gate: who they are + the day being
 /// closed on the left, the editable sign-out time on the right. Shows an
@@ -39,7 +39,11 @@ class RegStaffTimeRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Av2Avatar(initials: item.initials, diameter: 32),
+          ProfileAvatar(
+            name: item.staffName,
+            staffCode: item.staffCode,
+            size: 32,
+          ),
           const SizedBox(width: Av2Spacing.sm),
           Expanded(
             child: Column(

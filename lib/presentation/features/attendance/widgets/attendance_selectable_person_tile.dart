@@ -4,7 +4,8 @@ import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Selectable grid tile (checkbox + avatar + name) shared by the student
@@ -57,13 +58,15 @@ class AttendanceSelectablePersonTile extends StatelessWidget {
                   onChanged: onSelectionChanged,
                 ),
               ),
-              DocumentImageWidget(
-                fileUuid: photoUuid,
+              ProfileAvatar(
                 name: name,
                 studentCode: code,
-                showOnlyAbsentAttendanceDot: showOnlyAbsentAttendanceDot,
                 size: 32,
                 fontSize: 14,
+                statusDot: AttendanceStatusDot(
+                  studentCode: code,
+                  onlyAbsent: showOnlyAbsentAttendanceDot,
+                ),
               ),
               const SizedBox(width: AppSpacing.xs),
               Expanded(

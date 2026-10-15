@@ -11,7 +11,7 @@ import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_collap
 import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
 // StudentBillingCard (parent dashboard): the family ledger, current balance
@@ -92,13 +92,11 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        DocumentImageWidget(
-          fileUuid: '',
+        ProfileAvatar(
           name: name,
+          lookUpProfilePhoto: false,
           size: 30,
           fontSize: 12,
-          disableProfileLookupFallback: true,
-          disableAttendanceStatusLookup: true,
         ),
         const SizedBox(width: 10),
         Flexible(

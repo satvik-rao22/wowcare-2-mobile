@@ -77,7 +77,7 @@ class StaffStyleCard extends StatefulWidget {
   /// Shown only while collapsed, before [leading] (e.g. a checkbox).
   final Widget? collapsedPrefix;
 
-  /// Leading avatar — pass a `DocumentImageWidget` for person cards.
+  /// Leading avatar — pass a `ProfileAvatar` for person cards.
   final Widget? leading;
 
   /// Header content placed in the `Expanded` slot of the header row. Typically a

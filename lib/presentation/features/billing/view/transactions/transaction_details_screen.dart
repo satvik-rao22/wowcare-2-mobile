@@ -29,7 +29,8 @@ import 'package:wowcare/presentation/features/billing/view/transactions/view_inv
 import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -59,7 +60,8 @@ class TransactionDetailsScreen extends StatefulWidget {
   static const String routeName = '/billing/transaction-details';
 
   @override
-  State<TransactionDetailsScreen> createState() => _TransactionDetailsScreenState();
+  State<TransactionDetailsScreen> createState() =>
+      _TransactionDetailsScreenState();
 }
 
 class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
@@ -68,8 +70,10 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
       serviceLocator<TransactionDetailsCubit>();
   late final AdminStatementsCubit _statementsCubit =
       serviceLocator<AdminStatementsCubit>();
-  late final TabController _tabController =
-      TabController(length: 2, vsync: this);
+  late final TabController _tabController = TabController(
+    length: 2,
+    vsync: this,
+  );
   final ScrollController _scrollController = ScrollController();
 
   // Read-only proxies onto the cubit state so the build helpers stay unchanged.
@@ -175,11 +179,13 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
   List<Student> _familyStudents() {
     final inactive = _cubit.state.inactiveStudentCodes;
     return _familyChildren
-        .map((c) => Student(
-              code: (c.code ?? '').toString(),
-              fullName: (c.fullName ?? '').toString(),
-              photoUuid: c.photoUuid,
-            ))
+        .map(
+          (c) => Student(
+            code: (c.code ?? '').toString(),
+            fullName: (c.fullName ?? '').toString(),
+            photoUuid: c.photoUuid,
+          ),
+        )
         .where((s) => s.code.isNotEmpty && !inactive.contains(s.code))
         .toList();
   }
@@ -190,7 +196,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: const SnackBar(
-        content: Text(BillingStrings.noStudentsFoundForFamily)),
+          content: Text(BillingStrings.noStudentsFoundForFamily),
+        ),
       );
       return;
     }
@@ -218,16 +225,18 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
         },
         onSelectAddCredit: () {
           Navigator.of(ctx).maybePop();
-          context.push<bool>(
-            AddCreditScreen.routeName,
-            extra: AddCreditArgs(
-              ownerType: widget.ownerType,
-              ownerCode: widget.ownerCode,
-              familyName: _familyDisplayName,
-            ),
-          ).then((added) {
-            if (added == true) _cubit.refresh();
-          });
+          context
+              .push<bool>(
+                AddCreditScreen.routeName,
+                extra: AddCreditArgs(
+                  ownerType: widget.ownerType,
+                  ownerCode: widget.ownerCode,
+                  familyName: _familyDisplayName,
+                ),
+              )
+              .then((added) {
+                if (added == true) _cubit.refresh();
+              });
         },
       ),
     );
@@ -246,10 +255,10 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
   }
 
   void _showMessageUnavailable() => CoreUtils.showTopSnackBar(
-        context: context,
-        message: BillingStrings.messagingNotAvailableYet,
-        isWarning: true,
-      );
+    context: context,
+    message: BillingStrings.messagingNotAvailableYet,
+    isWarning: true,
+  );
 
   /// Opens the invoice in edit mode (Create Invoice screen). The form is
   /// hydrated from `GET /invoices/by-code/{code}` and PATCHes on save; the
@@ -319,8 +328,9 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
     required Future<bool> Function() action,
     required String successMessage,
   }) {
-    final name =
-        item.description.trim().isNotEmpty ? item.description : item.studentName;
+    final name = item.description.trim().isNotEmpty
+        ? item.description
+        : item.studentName;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -380,12 +390,14 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
   }
 
   List<BillingFamilyMember> get _statementsChildren => _familyChildren
-      .map((c) => BillingFamilyMember(
-            fullName: (c.fullName ?? '').toString(),
-            name: (c.fullName ?? '').toString(),
-            room: '',
-            roomName: '',
-          ))
+      .map(
+        (c) => BillingFamilyMember(
+          fullName: (c.fullName ?? '').toString(),
+          name: (c.fullName ?? '').toString(),
+          room: '',
+          roomName: '',
+        ),
+      )
       .toList();
 
   @override
@@ -401,7 +413,12 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
               children: [
                 // Family name header + add button
                 Padding(
-                  padding: const EdgeInsets.only(left: 4, top: 8, right: 16, bottom: 4),
+                  padding: const EdgeInsets.only(
+                    left: 4,
+                    top: 8,
+                    right: 16,
+                    bottom: 4,
+                  ),
                   child: Row(
                     children: [
                       Expanded(
@@ -437,14 +454,17 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                     controller: _tabController,
                     dividerColor: AppColors.transparentColor,
                     indicator: const UnderlineTabIndicator(
-                      borderSide:
-                          BorderSide(color: AppColors.themeColor, width: 2),
+                      borderSide: BorderSide(
+                        color: AppColors.themeColor,
+                        width: 2,
+                      ),
                     ),
                     indicatorSize: TabBarIndicatorSize.label,
                     indicatorPadding: const EdgeInsets.only(bottom: 8),
                     labelColor: AppColors.themeColor,
-                    unselectedLabelColor:
-                        AppColors.primaryColor.withValues(alpha: 0.5),
+                    unselectedLabelColor: AppColors.primaryColor.withValues(
+                      alpha: 0.5,
+                    ),
                     labelStyle: const TextStyle(
                       fontFamily: AppFonts.body,
                       fontSize: 16,
@@ -526,12 +546,19 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
             ),
             child: Row(
               children: [
-                Icon(Icons.error_outline, color: AppColors.billingErrorIconColor, size: 20),
+                Icon(
+                  Icons.error_outline,
+                  color: AppColors.billingErrorIconColor,
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Error loading family transactions: $_errorMessage',
-                    style: TextStyle(color: AppColors.billingErrorTextColor, fontSize: 14),
+                    style: TextStyle(
+                      color: AppColors.billingErrorTextColor,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
                 TextButton(
@@ -586,7 +613,10 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
             child: Center(
               child: Text(
                 BillingStrings.noFamilyTransactionsFound,
-                style: TextStyle(fontSize: 16, color: AppColors.billingTextColor),
+                style: TextStyle(
+                  fontSize: 16,
+                  color: AppColors.billingTextColor,
+                ),
               ),
             ),
           )
@@ -598,7 +628,9 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                 children: _siblingTransactions.map((transaction) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8.0, vertical: 6.0),
+                      horizontal: 8.0,
+                      vertical: 6.0,
+                    ),
                     child: BillingTransactionCard(
                       transaction: transaction,
                       // Already on the Billing profile — don't offer to reopen it.
@@ -641,7 +673,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                       ),
                       onEditInvoice: () => _openEditInvoice(transaction),
                       onMessage: _showMessageUnavailable,
-                      onBillingProfile: () => _openTransactionDetails(transaction),
+                      onBillingProfile: () =>
+                          _openTransactionDetails(transaction),
                       onCancel: () => _confirmCancel(transaction),
                       onDelete: () => _confirmDelete(transaction),
                     ),
@@ -683,13 +716,13 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
   Widget _buildFamilyStatBar() {
     if (_isLoadingSiblings) {
       Widget bar(double w, double h, {double radius = 4}) => Container(
-            width: w,
-            height: h,
-            decoration: BoxDecoration(
-              color: AppColors.billingCardColor,
-              borderRadius: BorderRadius.circular(radius),
-            ),
-          );
+        width: w,
+        height: h,
+        decoration: BoxDecoration(
+          color: AppColors.billingCardColor,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      );
       // Mirrors AmountInvoicedStatBar: title, the segmented amount bar, and a
       // legend row.
       return Shimmer.fromColors(
@@ -761,13 +794,13 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
   Widget _buildFamilyInfoBox() {
     if (_isLoadingFamily) {
       Widget bar(double w, double h) => Container(
-            width: w,
-            height: h,
-            decoration: BoxDecoration(
-              color: AppColors.billingCardColor,
-              borderRadius: BorderRadius.circular(4),
-            ),
-          );
+        width: w,
+        height: h,
+        decoration: BoxDecoration(
+          color: AppColors.billingCardColor,
+          borderRadius: BorderRadius.circular(4),
+        ),
+      );
       // Mirrors the real family-info box: a row of child chips (avatar + name)
       // and the "Parents: …" line below.
       return Shimmer.fromColors(
@@ -826,7 +859,10 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
         ),
         child: Text(
           'Failed to load family: $_familyError',
-          style: TextStyle(color: AppColors.billingErrorTextColor, fontSize: 12),
+          style: TextStyle(
+            color: AppColors.billingErrorTextColor,
+            fontSize: 12,
+          ),
         ),
       );
     }
@@ -853,15 +889,17 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: _familyChildren
-                      .map((c) => Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: _FamilyChip(
-                              name: (c.fullName ?? '').toString(),
-                              studentCode: c.code,
-                              isInactive: _cubit.state.inactiveStudentCodes
-                                  .contains((c.code ?? '').toString()),
-                            ),
-                          ))
+                      .map(
+                        (c) => Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: _FamilyChip(
+                            name: (c.fullName ?? '').toString(),
+                            studentCode: c.code,
+                            isInactive: _cubit.state.inactiveStudentCodes
+                                .contains((c.code ?? '').toString()),
+                          ),
+                        ),
+                      )
                       .toList(),
                 ),
               ),
@@ -926,17 +964,21 @@ class _FamilyChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // The family-ledger API carries no photo field — [studentCode] lets
-          // DocumentImageWidget self-resolve the real photo the same way
+          // ProfileAvatar self-resolve the real photo the same way
           // select_students_screen.dart does, instead of always showing
           // initials on a flat CircleAvatar.
-          DocumentImageWidget(
-            fileUuid: '',
+          ProfileAvatar(
+            name: name,
             studentCode: (studentCode ?? '').trim().isNotEmpty
                 ? studentCode
                 : null,
-            name: name,
             size: 32,
             fontSize: 12,
+            statusDot: AttendanceStatusDot(
+              studentCode: (studentCode ?? '').trim().isNotEmpty
+                  ? studentCode
+                  : null,
+            ),
           ),
           const SizedBox(width: 8),
           ConstrainedBox(
@@ -957,4 +999,3 @@ class _FamilyChip extends StatelessWidget {
     );
   }
 }
-

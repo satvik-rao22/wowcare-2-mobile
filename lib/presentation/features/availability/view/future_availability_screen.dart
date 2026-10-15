@@ -16,7 +16,7 @@ import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/gradient_toggle_button.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class FutureAvailabilityScreen extends StatefulWidget {
@@ -525,12 +525,9 @@ class _ClassroomCell extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: <Widget>[
-              DocumentImageWidget(
-                fileUuid: item.roomCode.isNotEmpty
-                    ? item.roomCode
-                    : item.roomName,
+              ProfileAvatar(
                 name: item.roomName,
-                mediaAssetCode: item.logoAssetCode.trim().isEmpty
+                assetCode: item.logoAssetCode.trim().isEmpty
                     ? null
                     : item.logoAssetCode,
                 classroomCode: item.roomCode.isEmpty ? null : item.roomCode,

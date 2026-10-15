@@ -176,7 +176,7 @@ class ConversationParticipant extends Equatable {
   final String? avatarUrl;
 
   /// Role-specific staff code (STF_*) used for fetching the staff profile
-  /// photo via DocumentImageWidget. Null for non-staff participants.
+  /// photo via ProfileAvatar. Null for non-staff participants.
   final String? staffCode;
 
   /// This participant's own unread count for the conversation — the REST

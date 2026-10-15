@@ -65,10 +65,17 @@ class _PageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(AppSizes.lg, AppSizes.md, AppSizes.md, AppSizes.sm),
+      padding: const EdgeInsets.fromLTRB(
+        AppSizes.lg,
+        AppSizes.md,
+        AppSizes.md,
+        AppSizes.sm,
+      ),
       decoration: const BoxDecoration(
         color: AppColors.cardColor,
-        border: Border(bottom: BorderSide(color: AppColors.messagingDividerLight, width: 1)),
+        border: Border(
+          bottom: BorderSide(color: AppColors.messagingDividerLight, width: 1),
+        ),
       ),
       child: Row(
         children: [
@@ -94,7 +101,9 @@ class _PageHeader extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      totalUnread > 99 ? AppStrings.unreadCountOverflow : '$totalUnread',
+                      totalUnread > 99
+                          ? AppStrings.unreadCountOverflow
+                          : '$totalUnread',
                       style: AppTextStyles.size14.copyWith(
                         color: AppColors.messagingOnAccent,
                         fontSize: 11,
@@ -165,7 +174,10 @@ class _ConversationTileContent extends StatelessWidget {
         decoration: const BoxDecoration(
           color: AppColors.cardColor,
           border: Border(
-            bottom: BorderSide(color: AppColors.messagingDividerLight, width: 1),
+            bottom: BorderSide(
+              color: AppColors.messagingDividerLight,
+              width: 1,
+            ),
           ),
         ),
         child: ListTile(
@@ -179,18 +191,16 @@ class _ConversationTileContent extends StatelessWidget {
           // is directly available on this v2 entity, so the avatar's
           // built-in attendance dot (real "signed in today" vs "absent"
           // vs nothing) is wired up properly instead.
-          leading: DocumentImageWidget(
-            disableAttendanceStatusLookup: true,
-            fileUuid: '',
+          leading: ProfileAvatar(
+            name: conversation.title,
             imageUrl: conversation.avatarUrl.startsWith('http')
                 ? conversation.avatarUrl
                 : null,
-            mediaAssetCode: conversation.avatarUrl.startsWith('http')
+            assetCode: conversation.avatarUrl.startsWith('http')
                 ? null
                 : conversation.avatarUrl,
-            name: conversation.title,
-            size: 52,
             studentCode: conversation.studentCode,
+            size: 52,
           ),
           title: Padding(
             padding: const EdgeInsets.only(bottom: AppSizes.xxs),
@@ -263,7 +273,11 @@ class _ConversationTileContent extends StatelessWidget {
                           // it embeds the full participants array correctly —
                           // count active participants directly instead of
                           // trusting that separate, unpopulated field.
-                          AppStrings.participantsCount(conversation.participants.where((p) => p.isActive).length),
+                          AppStrings.participantsCount(
+                            conversation.participants
+                                .where((p) => p.isActive)
+                                .length,
+                          ),
                           style: AppTextStyles.size14.copyWith(
                             fontSize: 11,
                             color: AppColors.messagingTextPlaceholder,
@@ -287,7 +301,9 @@ class _ConversationTileContent extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.messagingUnreadBadge.withValues(alpha: 0.35),
+                          color: AppColors.messagingUnreadBadge.withValues(
+                            alpha: 0.35,
+                          ),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),

@@ -5,7 +5,8 @@ import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 
 /// A selected-person chip with a remove ("x") action, shown in the working
 /// list of the sign-in/sign-out/transfer/mark-absent forms (both student and
@@ -29,7 +30,7 @@ class AttendanceRemoveTile extends StatelessWidget {
   final String photoUuid;
   final VoidCallback onRemove;
 
-  /// Identifies who the photo belongs to so [DocumentImageWidget] can
+  /// Identifies who the photo belongs to so [ProfileAvatar] can
   /// actually resolve it — [photoUuid] alone is NOT enough to fetch an
   /// image (it's only ever used as a fallback seed for the initials-avatar
   /// color), so without one of these every tile fell straight back to
@@ -70,13 +71,16 @@ class AttendanceRemoveTile extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                DocumentImageWidget(
-                  fileUuid: photoUuid,
+                ProfileAvatar(
+                  name: name,
                   studentCode: studentCode,
                   staffCode: staffCode,
-                  name: name,
                   size: 30,
                   fontSize: 12,
+                  statusDot: AttendanceStatusDot(
+                    staffCode: staffCode,
+                    studentCode: studentCode,
+                  ),
                 ),
                 const SizedBox(width: AppSpacing.s6),
                 Flexible(

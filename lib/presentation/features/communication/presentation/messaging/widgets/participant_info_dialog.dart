@@ -4,7 +4,7 @@ import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/participant_avatar_source.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
@@ -273,22 +273,24 @@ class _StudentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSizes.md, vertical: 14),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.md,
+        vertical: 14,
+      ),
       decoration: AppSurfaces.card(radius: 14),
       child: Row(
         children: [
-          DocumentImageWidget(
-            disableAttendanceStatusLookup: true,
-            fileUuid: '',
+          ProfileAvatar(
+            name: name,
+
             // `avatarUuid` is either a resolved URL or a raw media-asset
             // code depending on the caller — `fileUuid` is never actually
             // used to resolve an image (only `imageUrl`/`mediaAssetCode`
             // are), so route to whichever matches the value's shape.
             imageUrl: (avatarUuid ?? '').startsWith('http') ? avatarUuid : null,
-            mediaAssetCode: (avatarUuid ?? '').startsWith('http')
+            assetCode: (avatarUuid ?? '').startsWith('http')
                 ? null
                 : avatarUuid,
-            name: name,
             size: 52,
             fontSize: 20,
           ),
@@ -355,14 +357,12 @@ class _ParticipantTile extends StatelessWidget {
       child: Row(
         children: [
           // Avatar
-          DocumentImageWidget(
-            disableAttendanceStatusLookup: true,
-            fileUuid: '',
+          ProfileAvatar(
+            name: data.displayName,
             imageUrl: avatar.imageUrl,
-            mediaAssetCode: avatar.mediaAssetCode,
+            assetCode: avatar.mediaAssetCode,
             staffCode: avatar.staffCode,
             userCode: avatar.userCode,
-            name: data.displayName,
             size: 42,
             fontSize: 14,
           ),

@@ -28,7 +28,7 @@ import 'package:wowcare/presentation/features/dashboard/widgets/movements_card.d
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/cache_manager.dart';
@@ -410,7 +410,7 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
       _studentSummary = null;
       _staffSummary = null;
       _summaryError = null;
-      // The logo avatar resolves per-classroom via DocumentImageWidget; a
+      // The logo avatar resolves per-classroom via ProfileAvatar; a
       // stale asset code / URL from a previous selection must not leak over.
       _classroomLogoUrl = '';
       _classroomLogoAssetCode = '';
@@ -457,13 +457,10 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
     // asset fallback, and [classroomCode] is the per-classroom lookup for the
     // initial load. No ValueKey — it updates via didUpdateWidget when any of
     // these change (matching the profile photo, which also uses no key).
-    final content = DocumentImageWidget(
-      fileUuid: classroomCode.isNotEmpty
-          ? classroomCode
-          : (trimmedName.isNotEmpty ? trimmedName : 'Classroom'),
+    final content = ProfileAvatar(
       name: trimmedName.isEmpty ? 'Classroom' : trimmedName,
       imageUrl: logoUrl.isEmpty ? null : logoUrl,
-      mediaAssetCode: logoAssetCode.isEmpty ? null : logoAssetCode,
+      assetCode: logoAssetCode.isEmpty ? null : logoAssetCode,
       classroomCode: classroomCode.isEmpty ? null : classroomCode,
       size: 60,
       fontSize: 24,
@@ -599,7 +596,7 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
       // avatar, so the new logo shows immediately on THIS screen and on the
       // classroom screen / dashboard cards — without them re-resolving against
       // the eventually-consistent endpoint (which could re-cache the old logo).
-      DocumentImageWidget.primeProfilePhotoUrl(
+      serviceLocator<AssetService>().primeProfilePhotoUrl(
         classroomCode: classroomCode,
         url: logoUrl,
       );

@@ -13,7 +13,7 @@ import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_h
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_collapsible.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 // ---------------------------------------------------------------------------
 // UI-layer student model
@@ -240,14 +240,12 @@ void _showStudentsDialog(
               itemBuilder: (_, index) {
                 final s = students[index];
                 return ListTile(
-                  leading: DocumentImageWidget(
-                    fileUuid: '',
-                    mediaAssetCode: s.profilePhotoAssetCode,
+                  leading: ProfileAvatar(
                     name: s.name.isEmpty ? s.avatarInitials : s.name,
+                    assetCode: s.profilePhotoAssetCode,
+                    lookUpProfilePhoto: false,
                     size: 40,
                     fontSize: 16,
-                    disableProfileLookupFallback: true,
-                    disableAttendanceStatusLookup: true,
                   ),
                   title: Text(s.name),
                   onTap: () {
@@ -333,14 +331,12 @@ class _MovementAvatarStack extends StatelessWidget {
                               width: 2,
                             ),
                           ),
-                          child: DocumentImageWidget(
-                            fileUuid: '',
-                            mediaAssetCode: s.profilePhotoAssetCode,
+                          child: ProfileAvatar(
                             name: s.name.isEmpty ? s.avatarInitials : s.name,
+                            assetCode: s.profilePhotoAssetCode,
+                            lookUpProfilePhoto: false,
                             size: 41,
                             fontSize: 16,
-                            disableProfileLookupFallback: true,
-                            disableAttendanceStatusLookup: true,
                           ),
                         ),
                 );

@@ -5,6 +5,7 @@ import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_badges.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// Mobile task card used by both the Kanban column and List view. Surfaces
 /// the fields the PRD calls out (FR-TK-17): assignee, title, due date,
@@ -63,9 +64,9 @@ class TaskCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TaskAssigneeAvatar(
+                  ProfileAvatar(
                     name: task.assigneeName,
-                    code: task.assigneeCode,
+                    staffCode: task.assigneeCode,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -90,7 +91,9 @@ class TaskCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              fontSize: 12, color: AppPalette.textSecondary),
+                            fontSize: 12,
+                            color: AppPalette.textSecondary,
+                          ),
                         ),
                       ],
                     ),
@@ -98,16 +101,22 @@ class TaskCard extends StatelessWidget {
                   if (onMore != null)
                     GestureDetector(
                       onTap: onMore,
-                      child: const Icon(Icons.more_vert,
-                          size: 18, color: AppPalette.textMuted),
+                      child: const Icon(
+                        Icons.more_vert,
+                        size: 18,
+                        color: AppPalette.textMuted,
+                      ),
                     ),
                 ],
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.calendar_today_outlined,
-                      size: 13, color: AppPalette.textSecondary),
+                  const Icon(
+                    Icons.calendar_today_outlined,
+                    size: 13,
+                    color: AppPalette.textSecondary,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     TaskUiUtils.dueLabelInZone(task, schoolTimeZone),
@@ -121,8 +130,11 @@ class TaskCard extends StatelessWidget {
                   ),
                   if (task.recurring) ...[
                     const SizedBox(width: 8),
-                    const Icon(Icons.repeat,
-                        size: 13, color: AppPalette.textSecondary),
+                    const Icon(
+                      Icons.repeat,
+                      size: 13,
+                      color: AppPalette.textSecondary,
+                    ),
                   ],
                 ],
               ),

@@ -46,7 +46,7 @@ extension ConversationEntityDisplay on ConversationEntity {
   /// Avatar source (a resolved photo URL or a media-asset code) for a row / thread header. For a 1:1
   /// chat this is the OTHER participant's photo — the conversation-level [avatarUrl] is empty for
   /// direct chats; for a group/room chat it's the conversation avatar (the student's photo for
-  /// room/admin). Empty when none, so the caller's DocumentImageWidget can then resolve via a
+  /// room/admin). Empty when none, so the caller's ProfileAvatar can then resolve via a
   /// staff/student code or fall back to initials.
   String displayAvatar(String? currentUserCode) {
     final other = otherParticipant(currentUserCode);

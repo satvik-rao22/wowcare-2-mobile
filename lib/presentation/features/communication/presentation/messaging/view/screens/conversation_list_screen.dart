@@ -24,7 +24,7 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 part 'conversation_list_tiles.dart';
 part 'conversation_list_chips.dart';
 
@@ -196,7 +196,12 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                       // ── Search + Unread toggle ────────────────────────────────
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(AppSizes.md, AppSizes.sm, AppSizes.md, 0),
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSizes.md,
+                            AppSizes.sm,
+                            AppSizes.md,
+                            0,
+                          ),
                           child: Column(
                             children: [
                               Container(
@@ -228,7 +233,8 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                                         AppStrings.unreadOnly,
                                         style: AppTextStyles.size14.copyWith(
                                           fontSize: 13,
-                                          color: AppColors.messagingTextSecondary,
+                                          color:
+                                              AppColors.messagingTextSecondary,
                                         ),
                                       ),
                                     ],
@@ -372,7 +378,9 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                       if (state.isLoading && state.hasConversations)
                         const SliverToBoxAdapter(
                           child: Padding(
-                            padding: EdgeInsets.symmetric(vertical: AppSizes.md),
+                            padding: EdgeInsets.symmetric(
+                              vertical: AppSizes.md,
+                            ),
                             child: Center(
                               child: PrimaryCircularLoader(
                                 size: 24,
@@ -457,7 +465,8 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
         child: AppErrorState(
           title: AppStrings.failedToSearchStaff,
           message: state.staffSearchErrorMessage,
-          onRetry: () => context.read<ConversationListCubit>().retryStaffSearch(),
+          onRetry: () =>
+              context.read<ConversationListCubit>().retryStaffSearch(),
           compact: true,
         ),
       );
@@ -477,7 +486,12 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
     if (state.staffSearchResults.isEmpty) {
       return SliverToBoxAdapter(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(AppSizes.lg, AppSizes.sm, AppSizes.lg, 0),
+          padding: const EdgeInsets.fromLTRB(
+            AppSizes.lg,
+            AppSizes.sm,
+            AppSizes.lg,
+            0,
+          ),
           child: Text(
             AppStrings.noStaffFoundFor(_searchController.text),
             style: AppTextStyles.size14.copyWith(
@@ -496,7 +510,12 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
         // Section header
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(AppSizes.lg, AppSizes.md, AppSizes.lg, AppSizes.xxs),
+            padding: const EdgeInsets.fromLTRB(
+              AppSizes.lg,
+              AppSizes.md,
+              AppSizes.lg,
+              AppSizes.xxs,
+            ),
             child: Text(
               AppStrings.staffDirectory,
               style: AppTextStyles.size14.copyWith(

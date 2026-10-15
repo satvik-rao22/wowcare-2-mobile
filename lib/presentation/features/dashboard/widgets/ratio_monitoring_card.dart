@@ -28,7 +28,7 @@ import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_h
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_collapsible.dart';
 import 'package:wowcare/presentation/features/classroom/view/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 import 'dashboard_error_chip.dart';
 
@@ -130,16 +130,13 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
     } catch (_) {
       if (!mounted) return;
       if (attempt < _notesUnreadRetryDelays.length) {
-        Future.delayed(
-          Duration(seconds: _notesUnreadRetryDelays[attempt]),
-          () {
-            if (mounted) {
-              unawaited(
-                _resolveNotesUnreadCount(classroomCode, attempt: attempt + 1),
-              );
-            }
-          },
-        );
+        Future.delayed(Duration(seconds: _notesUnreadRetryDelays[attempt]), () {
+          if (mounted) {
+            unawaited(
+              _resolveNotesUnreadCount(classroomCode, attempt: attempt + 1),
+            );
+          }
+        });
       } else {
         // Out of retries — allow a later rebuild (pull-to-refresh, date
         // change, returning to this tab) to try again from scratch rather
@@ -440,14 +437,12 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
                       Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          DocumentImageWidget(
-                            fileUuid: '',
+                          ProfileAvatar(
                             name: room.name,
                             classroomCode: room.code,
+                            lookUpProfilePhoto: false,
                             size: 30,
                             fontSize: 12,
-                            disableProfileLookupFallback: true,
-                            disableAttendanceStatusLookup: true,
                           ),
                           if (unread > 0)
                             Positioned(
@@ -508,7 +503,9 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
-                            unread > 99 ? AppStrings.unreadCountOverflow : '$unread',
+                            unread > 99
+                                ? AppStrings.unreadCountOverflow
+                                : '$unread',
                             style: const TextStyle(
                               color: AppColors.textOnDarkColor,
                               fontSize: 10,
@@ -783,7 +780,10 @@ class _RatioMonitoringCardShimmer extends StatelessWidget {
               ),
             ),
             // Column headers
-            Container(height: 90, color: AppColors.whiteColor.withValues(alpha: 0.6)),
+            Container(
+              height: 90,
+              color: AppColors.whiteColor.withValues(alpha: 0.6),
+            ),
             // Data rows
             ...List.generate(
               _shimmerRows,

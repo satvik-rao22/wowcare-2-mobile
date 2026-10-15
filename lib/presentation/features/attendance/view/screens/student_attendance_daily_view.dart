@@ -7,7 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -234,7 +234,7 @@ class _StudentAttendanceDailyViewScreenState
     unawaited(_loadStudentCounts());
     // ...and every visible avatar status dot, which fetches independently of
     // this list and would otherwise keep showing the pre-edit status.
-    DocumentImageWidget.refreshAttendanceStatusDots();
+    AttendanceStatusDot.refreshAll();
     // ...and, when hosted in the tabbed shell, the sibling tabs (Custom,
     // Absent) so the whole page reflects the action.
     widget.onAttendanceMutated?.call();
@@ -305,7 +305,9 @@ class _StudentAttendanceDailyViewScreenState
         _loggedInUserName = fallback;
       });
     } catch (e) {
-      AppLogger.d('StudentAttendanceDailyView: resolveLoggedInUserName failed: $e');
+      AppLogger.d(
+        'StudentAttendanceDailyView: resolveLoggedInUserName failed: $e',
+      );
     }
   }
 

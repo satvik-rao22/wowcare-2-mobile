@@ -34,7 +34,8 @@ import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_schoo
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
@@ -980,13 +981,15 @@ class _EditStudentProfileDetailsScreenState
                         // reason alongside the disabled Classroom field.
                         Row(
                           children: [
-                            DocumentImageWidget(
-                              fileUuid: '',
-                              studentCode: widget.studentCode,
+                            ProfileAvatar(
                               name:
                                   '${widget.initialFirstName ?? ''} ${widget.initialLastName ?? ''}',
+                              studentCode: widget.studentCode,
                               size: 40,
                               fontSize: 14,
+                              statusDot: AttendanceStatusDot(
+                                studentCode: widget.studentCode,
+                              ),
                             ),
                             const SizedBox(width: AppSpacing.s10),
                             Expanded(

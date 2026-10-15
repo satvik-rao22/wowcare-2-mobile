@@ -5,7 +5,7 @@ import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/core/extensions/messaging_time_formatter.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// A single recipient's delivery/read state for [MessageInfoDialog] —
 /// stack-agnostic so both the legacy (Room Chat / Staff Direct) and v2
@@ -297,16 +297,12 @@ class _RecipientTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          DocumentImageWidget(
-            fileUuid: '',
-            imageUrl: isUrl ? avatarSource : null,
-            mediaAssetCode: !isUrl && avatarSource.isNotEmpty
-                ? avatarSource
-                : null,
+          ProfileAvatar(
             name: recipient.name,
+            imageUrl: isUrl ? avatarSource : null,
+            assetCode: !isUrl && avatarSource.isNotEmpty ? avatarSource : null,
             size: 32,
             fontSize: 12,
-            disableAttendanceStatusLookup: true,
           ),
           const SizedBox(width: AppSizes.xsPlus),
           Expanded(

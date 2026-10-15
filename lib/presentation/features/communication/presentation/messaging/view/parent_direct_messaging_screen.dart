@@ -28,7 +28,7 @@ import 'package:wowcare/presentation/features/communication/view_model/conversat
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 
@@ -363,7 +363,10 @@ class _ParentDirectMessagingScreenState
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: AppSizes.xs),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: AppSizes.xsPlus),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: AppSizes.xsPlus,
+      ),
       decoration: BoxDecoration(
         color: AppColors.messagingErrorSoftBg,
         borderRadius: BorderRadius.circular(10),
@@ -371,7 +374,11 @@ class _ParentDirectMessagingScreenState
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, color: AppColors.messagingErrorRed, size: 18),
+          const Icon(
+            Icons.error_outline,
+            color: AppColors.messagingErrorRed,
+            size: 18,
+          ),
           const SizedBox(width: AppSizes.xs),
           Expanded(
             child: CustomTextWidget(
@@ -634,26 +641,34 @@ class _ParentDirectMessagingScreenState
                   decoration: const BoxDecoration(
                     color: AppColors.transparentColor,
                     border: Border(
-                      bottom: BorderSide(color: AppColors.messagingBorderSubtle, width: 1),
+                      bottom: BorderSide(
+                        color: AppColors.messagingBorderSubtle,
+                        width: 1,
+                      ),
                     ),
                   ),
-                  padding: const EdgeInsets.fromLTRB(AppSizes.md, AppSizes.xs, AppSizes.xxs, AppSizes.xs),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSizes.md,
+                    AppSizes.xs,
+                    AppSizes.xxs,
+                    AppSizes.xs,
+                  ),
                   child: Row(
                     children: [
-                      DocumentImageWidget(
-                        disableAttendanceStatusLookup: true,
-                        fileUuid: '',
+                      ProfileAvatar(
+                        name: childName,
                         studentCode: (childCode ?? '').trim().isNotEmpty
                             ? childCode
                             : null,
-                        name: childName,
                         size: 34,
                         fontSize: 15,
                       ),
                       const SizedBox(width: AppSizes.xsPlus),
                       Expanded(
                         child: CustomTextWidget(
-                          text: childName.isNotEmpty ? childName : AppStrings.studentFallback,
+                          text: childName.isNotEmpty
+                              ? childName
+                              : AppStrings.studentFallback,
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
                         ),
@@ -676,7 +691,10 @@ class _ParentDirectMessagingScreenState
                     ),
                   ),
                 ),
-                const Divider(height: 1, color: AppColors.messagingBorderSubtle),
+                const Divider(
+                  height: 1,
+                  color: AppColors.messagingBorderSubtle,
+                ),
                 // Centered empty state
                 Expanded(
                   child: Center(
@@ -686,7 +704,9 @@ class _ParentDirectMessagingScreenState
                         Icon(
                           Icons.chat_bubble_outline_rounded,
                           size: 56,
-                          color: AppColors.messagingIconMuted.withValues(alpha: 0.35),
+                          color: AppColors.messagingIconMuted.withValues(
+                            alpha: 0.35,
+                          ),
                         ),
                         const SizedBox(height: AppSizes.sm),
                         CustomTextWidget(

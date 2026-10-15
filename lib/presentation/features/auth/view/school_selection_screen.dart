@@ -4,14 +4,14 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
-import 'package:wowcare/core/extensions/string_ext.dart';
+import 'package:wowcare/core/utils/app_string_extension.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
@@ -27,6 +27,7 @@ class SchoolSelectionScreen extends StatefulWidget {
     required this.selectedOrg,
     this.isSwitchFlow = false,
     this.schoolsForOrg,
+
     /// True when org comes from login-context (redirect select-school).
     /// Only then do we call names-by-org API for that org.
     this.orgFromLoginContext = false,
@@ -34,6 +35,7 @@ class SchoolSelectionScreen extends StatefulWidget {
 
   final String selectedOrg;
   final bool isSwitchFlow;
+
   /// When switching org from Dashboard: list of {schoolCode, schoolName} for selected org.
   final List<Map<String, String>>? schoolsForOrg;
   final bool orgFromLoginContext;
@@ -148,12 +150,12 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
               .toSet()
               .toList();
           final orgNames = state is AuthLoaded ? state.orgNames : <String>[];
-          
+
           // Find the organization name for the selected org code
           String orgDisplayName = widget.selectedOrg; // fallback to code
           final orgIndex = orgCodes.indexOf(widget.selectedOrg);
-          if (orgIndex != -1 && 
-              orgIndex < orgNames.length && 
+          if (orgIndex != -1 &&
+              orgIndex < orgNames.length &&
               orgNames.isNotEmpty &&
               orgNames.length == orgCodes.length) {
             orgDisplayName = orgNames[orgIndex];
@@ -161,17 +163,18 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
 
           final List<Map<String, String>> allSchoolEntries =
               widget.schoolsForOrg != null
-                  ? widget.schoolsForOrg!
-                  : (state is AuthLoaded
-                      ? (state.schoolsByOrg[widget.selectedOrg] ?? const [])
-                      : const <Map<String, String>>[]);
+              ? widget.schoolsForOrg!
+              : (state is AuthLoaded
+                    ? (state.schoolsByOrg[widget.selectedOrg] ?? const [])
+                    : const <Map<String, String>>[]);
           // PENDING schools stay listed; selecting one is blocked on Next.
           final schoolEntries = allSchoolEntries;
           final schools = schoolEntries
               .map((e) => e['schoolName'] ?? e['schoolCode'] ?? '')
               .where((s) => s.isNotEmpty)
               .toList();
-          final isLoading = state is AuthLoaded &&
+          final isLoading =
+              state is AuthLoaded &&
               state.isPrefetchingSchools &&
               schools.isEmpty;
 
@@ -231,27 +234,27 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                               ),
                               SizedBox(height: screenHeight * 0.01),
                               Text(
-                                  'WowCare',
-                                  style: TextStyle(
-                                    fontSize: screenHeight * 0.03,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.themeColor,
-                                  ),
+                                'WowCare',
+                                style: TextStyle(
+                                  fontSize: screenHeight * 0.03,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.themeColor,
                                 ),
+                              ),
                               SizedBox(height: screenHeight * 0.03),
                               // Profile avatar + name/role in a row (like design)
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  DocumentImageWidget(
-                                    fileUuid: login?.userCode ?? '',
+                                  ProfileAvatar(
                                     name: userName,
                                     size: screenHeight * 0.07,
                                     fontSize: screenHeight * 0.024,
                                   ),
                                   SizedBox(width: screenWidth * 0.03),
                                   Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
@@ -270,7 +273,8 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                           fontFamily: AppFonts.body,
                                           fontSize: screenHeight * 0.016,
                                           fontWeight: FontWeight.w400,
-                                          color: AppColors.authSecondaryTextColor,
+                                          color:
+                                              AppColors.authSecondaryTextColor,
                                         ),
                                       ),
                                     ],
@@ -327,57 +331,64 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                               SizedBox(height: screenHeight * 0.02),
                               if (isLoading)
                                 Padding(
-                                  padding: EdgeInsets.only(bottom: screenHeight * 0.02),
+                                  padding: EdgeInsets.only(
+                                    bottom: screenHeight * 0.02,
+                                  ),
                                   child: const LinearProgressIndicator(),
                                 ),
                               ValueListenableBuilder<String?>(
                                 valueListenable: _selectedSchool,
                                 builder: (context, selectedSchool, _) =>
                                     CustomDropdown(
-                                  hintText: isLoading
-                                      ? 'Loading schools...'
-                                      : (schools.isNotEmpty
-                                          ? 'Select school'
-                                          : 'No schools found'),
-                                  items: schools,
-                                  selectedItem: selectedSchool,
-                                  height: screenHeight * 0.06,
-                                  contentPadding: EdgeInsets.symmetric(
-                                    vertical: screenHeight * 0.01,
-                                    horizontal: screenWidth * 0.04,
-                                  ),
-                                  leadingIcon: AppIcon(
-                                    MediaRes.homeIcon,
-                                    height: screenHeight * 0.022,
-                                    width: screenHeight * 0.022,
-                                    color: AppColors.authAccentTextColor,
-                                  ),
-                                  selectedTextStyle: TextStyle(
-                                    fontFamily: AppFonts.body,
-                                    fontSize: screenHeight * 0.022,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.authPrimaryTextColor,
-                                  ),
-                                  popupItemTextStyle: TextStyle(
-                                    fontFamily: AppFonts.body,
-                                    fontSize: screenHeight * 0.02,
-                                    fontWeight: FontWeight.w400,
-                                    color: AppColors.authPrimaryTextColor,
-                                  ),
-                                  onSelect: (value) {
-                                    _selectedSchool.value = value;
-                                    if (value != null && schoolEntries.isNotEmpty) {
-                                      final entry = schoolEntries.firstWhere(
-                                        (e) =>
-                                            (e['schoolName'] ?? e['schoolCode']) ==
-                                            value,
-                                        orElse: () => <String, String>{},
-                                      );
-                                      _selectedSchoolCode.value =
-                                          entry['schoolCode'] ?? entry['schoolName'];
-                                    }
-                                  },
-                                ),
+                                      hintText: isLoading
+                                          ? 'Loading schools...'
+                                          : (schools.isNotEmpty
+                                                ? 'Select school'
+                                                : 'No schools found'),
+                                      items: schools,
+                                      selectedItem: selectedSchool,
+                                      height: screenHeight * 0.06,
+                                      contentPadding: EdgeInsets.symmetric(
+                                        vertical: screenHeight * 0.01,
+                                        horizontal: screenWidth * 0.04,
+                                      ),
+                                      leadingIcon: AppIcon(
+                                        MediaRes.homeIcon,
+                                        height: screenHeight * 0.022,
+                                        width: screenHeight * 0.022,
+                                        color: AppColors.authAccentTextColor,
+                                      ),
+                                      selectedTextStyle: TextStyle(
+                                        fontFamily: AppFonts.body,
+                                        fontSize: screenHeight * 0.022,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.authPrimaryTextColor,
+                                      ),
+                                      popupItemTextStyle: TextStyle(
+                                        fontFamily: AppFonts.body,
+                                        fontSize: screenHeight * 0.02,
+                                        fontWeight: FontWeight.w400,
+                                        color: AppColors.authPrimaryTextColor,
+                                      ),
+                                      onSelect: (value) {
+                                        _selectedSchool.value = value;
+                                        if (value != null &&
+                                            schoolEntries.isNotEmpty) {
+                                          final entry = schoolEntries
+                                              .firstWhere(
+                                                (e) =>
+                                                    (e['schoolName'] ??
+                                                        e['schoolCode']) ==
+                                                    value,
+                                                orElse: () =>
+                                                    <String, String>{},
+                                              );
+                                          _selectedSchoolCode.value =
+                                              entry['schoolCode'] ??
+                                              entry['schoolName'];
+                                        }
+                                      },
+                                    ),
                               ),
                               SizedBox(height: screenHeight * 0.02),
                             ],
@@ -388,8 +399,10 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                     Padding(
                       padding: EdgeInsets.all(screenWidth * 0.06),
                       child: ListenableBuilder(
-                        listenable:
-                            Listenable.merge([_selectedSchool, _isSubmitting]),
+                        listenable: Listenable.merge([
+                          _selectedSchool,
+                          _isSubmitting,
+                        ]),
                         builder: (context, _) {
                           final selectedSchool = _selectedSchool.value;
                           final isSubmitting = _isSubmitting.value;
@@ -417,13 +430,17 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                       // (entry 'status'); users/details
                                       // statuses are the fallback.
                                       final entry = schoolEntries.firstWhere(
-                                        (e) => (e['schoolCode'] ?? '') == schoolCode,
+                                        (e) =>
+                                            (e['schoolCode'] ?? '') ==
+                                            schoolCode,
                                         orElse: () => <String, String>{},
                                       );
-                                      final status = (entry['status'] ??
-                                              _schoolStatuses[schoolCode.trim()] ??
-                                              '')
-                                          .toUpperCase();
+                                      final status =
+                                          (entry['status'] ??
+                                                  _schoolStatuses[schoolCode
+                                                      .trim()] ??
+                                                  '')
+                                              .toUpperCase();
                                       if (status == 'PENDING') {
                                         if (!context.mounted) return;
                                         CoreUtils.showTopSnackBar(
@@ -437,9 +454,10 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                       }
                                       final blockMessage = await authCubit
                                           .verifySchoolActiveOrBlockMessage(
-                                        organizationCode: widget.selectedOrg,
-                                        schoolCode: schoolCode,
-                                      );
+                                            organizationCode:
+                                                widget.selectedOrg,
+                                            schoolCode: schoolCode,
+                                          );
                                       if (blockMessage != null) {
                                         if (!context.mounted) return;
                                         CoreUtils.showTopSnackBar(
@@ -488,9 +506,10 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                       // trigger guardian/children calls.
                                       await authCubit
                                           .prefetchStaffProfileForOrgAndSchool(
-                                        organizationCode: widget.selectedOrg,
-                                        schoolCode: schoolCode,
-                                      );
+                                            organizationCode:
+                                                widget.selectedOrg,
+                                            schoolCode: schoolCode,
+                                          );
                                       if (!context.mounted) return;
                                       await context
                                           .read<RoleCubit>()

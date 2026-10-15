@@ -19,7 +19,8 @@ import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/birthday_badge.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
+import 'package:wowcare/shared/common/widgets/attendance_status_dot.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
@@ -161,7 +162,8 @@ class _StudentCardState extends State<StudentCard> {
     // Upcoming students get the same actions as active ones (Deactivate + Edit),
     // not the inactive set (Reactivate + Delete + Edit).
     final bool showActiveActions =
-        widget.student.status.trim().toUpperCase() == 'ACTIVE' || widget.student.status.trim().toUpperCase() == 'UPCOMING';
+        widget.student.status.trim().toUpperCase() == 'ACTIVE' ||
+        widget.student.status.trim().toUpperCase() == 'UPCOMING';
     final birthdayDaysUntil = UpcomingBirthday.daysUntil(widget.student.dob);
     String _toEnumDay(String shortDay) {
       switch (shortDay) {
@@ -230,15 +232,17 @@ class _StudentCardState extends State<StudentCard> {
                           Stack(
                             clipBehavior: Clip.none,
                             children: [
-                              DocumentImageWidget(
-                                fileUuid: widget.student.code,
-                                imageUrl: widget.student.profileImage,
-                                mediaAssetCode: widget.student.profilePhotoAssetCode,
+                              ProfileAvatar(
                                 name: widget.student.fullName,
-                                size: 45,
+                                imageUrl: widget.student.profileImage,
+                                assetCode: widget.student.profilePhotoAssetCode,
                                 studentCode: widget.student.code,
-                                studentEnrollmentStatus: widget.student.status,
-                                disableProfileLookupFallback: true,
+                                lookUpProfilePhoto: false,
+                                size: 45,
+                                statusDot: AttendanceStatusDot(
+                                  studentCode: widget.student.code,
+                                  profileStatus: widget.student.status,
+                                ),
                               ),
                               if (widget.isNapping)
                                 Positioned(
@@ -453,9 +457,12 @@ class _StudentCardState extends State<StudentCard> {
                                         ];
                                       })().map((day) {
                                         final enumDay = _toEnumDay(day);
-                                        final scheduleText =
-                                            widget.student.scheduleByDay[enumDay];
-                                        final hasDayInList = widget.student.schedule
+                                        final scheduleText = widget
+                                            .student
+                                            .scheduleByDay[enumDay];
+                                        final hasDayInList = widget
+                                            .student
+                                            .schedule
                                             .any(
                                               (d) =>
                                                   d.trim().toLowerCase() ==

@@ -5,6 +5,7 @@ import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// Admin-only RSVP summary (PRD FR-EV-16/17/18): three tappable count
 /// cards — Attending / Maybe / Not Attending — plus a total badge. Tapping
@@ -49,9 +50,7 @@ class EventRsvpSummary extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
-        onTap: count == 0
-            ? null
-            : () => _showParticipants(context, status),
+        onTap: count == 0 ? null : () => _showParticipants(context, status),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
@@ -106,8 +105,7 @@ class _RsvpParticipantsSheet extends StatefulWidget {
   final EventRsvpStatus status;
 
   @override
-  State<_RsvpParticipantsSheet> createState() =>
-      _RsvpParticipantsSheetState();
+  State<_RsvpParticipantsSheet> createState() => _RsvpParticipantsSheetState();
 }
 
 class _RsvpParticipantsSheetState extends State<_RsvpParticipantsSheet> {
@@ -126,10 +124,12 @@ class _RsvpParticipantsSheetState extends State<_RsvpParticipantsSheet> {
     final filtered = query.isEmpty
         ? all
         : all
-            .where((r) =>
-                r.userName.toLowerCase().contains(query) ||
-                r.userType.toLowerCase().contains(query))
-            .toList();
+              .where(
+                (r) =>
+                    r.userName.toLowerCase().contains(query) ||
+                    r.userType.toLowerCase().contains(query),
+              )
+              .toList();
     final groups = <String, List<EventRsvp>>{};
     for (final rsvp in filtered) {
       groups.putIfAbsent(rsvp.userType.toUpperCase(), () => []).add(rsvp);
@@ -157,8 +157,11 @@ class _RsvpParticipantsSheetState extends State<_RsvpParticipantsSheet> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Row(
                 children: [
-                  Icon(EventUiUtils.rsvpIcon(widget.status),
-                      size: 18, color: color),
+                  Icon(
+                    EventUiUtils.rsvpIcon(widget.status),
+                    size: 18,
+                    color: color,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -180,8 +183,10 @@ class _RsvpParticipantsSheetState extends State<_RsvpParticipantsSheet> {
                   onChanged: (value) => setState(() => _query = value),
                   decoration: InputDecoration(
                     hintText: 'Search participants…',
-                    hintStyle:
-                        TextStyle(fontSize: 13, color: AppPalette.textMuted),
+                    hintStyle: TextStyle(
+                      fontSize: 13,
+                      color: AppPalette.textMuted,
+                    ),
                     prefixIcon: const Icon(Icons.search, size: 19),
                     isDense: true,
                     filled: true,
@@ -197,7 +202,9 @@ class _RsvpParticipantsSheetState extends State<_RsvpParticipantsSheet> {
                       child: Text(
                         'No participants match your search',
                         style: TextStyle(
-                            fontSize: 13, color: AppPalette.textSecondary),
+                          fontSize: 13,
+                          color: AppPalette.textSecondary,
+                        ),
                       ),
                     )
                   : ListView(
@@ -237,18 +244,7 @@ class _RsvpParticipantsSheetState extends State<_RsvpParticipantsSheet> {
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: AppColors.themeColor.withValues(alpha: 0.12),
-            child: Text(
-              _initials(name),
-              style: const TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: AppColors.themeColor,
-              ),
-            ),
-          ),
+          ProfileAvatar(name: name, userCode: rsvp.userCode, size: 32),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -259,12 +255,16 @@ class _RsvpParticipantsSheetState extends State<_RsvpParticipantsSheet> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      fontSize: 13, color: AppPalette.textPrimary),
+                    fontSize: 13,
+                    color: AppPalette.textPrimary,
+                  ),
                 ),
                 Text(
                   _typeLabel(rsvp.userType),
                   style: const TextStyle(
-                      fontSize: 11, color: AppPalette.textMuted),
+                    fontSize: 11,
+                    color: AppPalette.textMuted,
+                  ),
                 ),
               ],
             ),
@@ -282,14 +282,5 @@ class _RsvpParticipantsSheetState extends State<_RsvpParticipantsSheet> {
     final lower = raw.trim().toLowerCase();
     if (lower.isEmpty) return raw;
     return lower[0].toUpperCase() + lower.substring(1);
-  }
-
-  static String _initials(String name) {
-    final parts =
-        name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty);
-    if (parts.isEmpty) return '?';
-    final first = parts.first[0];
-    final last = parts.length > 1 ? parts.last[0] : '';
-    return (first + last).toUpperCase();
   }
 }

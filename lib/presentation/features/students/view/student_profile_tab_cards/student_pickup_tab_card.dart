@@ -20,7 +20,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/students/view/add_pickup_screen.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 class StudentPickupTabCard extends StatefulWidget {
   const StudentPickupTabCard({
@@ -446,16 +446,15 @@ class _PickupCardState extends State<_PickupCard> {
                     mainAxisAlignment: MainAxisAlignment.start,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      DocumentImageWidget(
-                        fileUuid: '',
+                      ProfileAvatar(
+                        name: widget.name,
                         imageUrl: (widget.photoUrl ?? '').trim().isNotEmpty
                             ? widget.photoUrl!.trim()
                             : null,
-                        mediaAssetCode:
+                        assetCode:
                             (widget.photoAssetCode ?? '').trim().isNotEmpty
                             ? widget.photoAssetCode!.trim()
                             : null,
-                        name: widget.name,
                         size: 50,
                       ),
                       SizedBox(width: isTablet ? 16 : 9),

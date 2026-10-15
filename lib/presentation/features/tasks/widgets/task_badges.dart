@@ -56,54 +56,6 @@ class TaskOverdueBadge extends StatelessWidget {
   }
 }
 
-/// Circular initials avatar for an assignee, coloured from the shared profile
-/// palette so the same person reads consistently across the app.
-class TaskAssigneeAvatar extends StatelessWidget {
-  const TaskAssigneeAvatar({
-    required this.name,
-    required this.code,
-    this.size = 34,
-    super.key,
-  });
-
-  final String name;
-  final String code;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppColors.profileAvatarColors;
-    final seed = (code.isNotEmpty ? code : name);
-    final color = palette[seed.hashCode.abs() % palette.length];
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.25),
-        shape: BoxShape.circle,
-      ),
-      child: Text(
-        _initials(name),
-        style: TextStyle(
-          fontSize: size * 0.38,
-          fontWeight: FontWeight.w600,
-          color: AppColors.primaryColor,
-        ),
-      ),
-    );
-  }
-
-  static String _initials(String name) {
-    final parts =
-        name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
-        .toUpperCase();
-  }
-}
-
 class _Pill extends StatelessWidget {
   const _Pill({
     required this.color,

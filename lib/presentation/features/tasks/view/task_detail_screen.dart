@@ -26,15 +26,12 @@ import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/core/theme/app_haptics.dart';
+import 'package:wowcare/shared/common/widgets/profile_avatar.dart';
 
 /// Read-only task view with edit/delete affordances for users who own the
 /// task (PRD FR-TK-26/28).
 class TaskDetailScreen extends StatefulWidget {
-  const TaskDetailScreen({
-    required this.taskCode,
-    this.seriesCode,
-    super.key,
-  });
+  const TaskDetailScreen({required this.taskCode, this.seriesCode, super.key});
 
   static const String routeName = '/dashboard/tasks/detail';
 
@@ -109,7 +106,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   Future<void> _refreshSeries() async {
     final seriesCode = _seriesCodeFrom(context.read<TasksCubit>().state);
     if (seriesCode.isEmpty) return;
-    final series = await context.read<TasksCubit>().fetchSeriesDetail(seriesCode);
+    final series = await context.read<TasksCubit>().fetchSeriesDetail(
+      seriesCode,
+    );
     if (mounted && series != null) setState(() => _series = series);
   }
 
@@ -132,100 +131,100 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           unawaited(_loadAttachments());
         },
         child: BlocBuilder<TasksCubit, TasksState>(
-        builder: (context, state) {
-          final task = _resolveTask(state);
-          if (task == null) {
-            // A notification deep link always lands here on a cold cubit, with
-            // the list still in flight — so wait for the load to settle before
-            // claiming the task is missing, or "Task not found" flashes first.
-            // `isLoading` alone can't be relied on: the deep-link route loads
-            // silently, which leaves it false throughout.
-            if (state.isLoading || state.tasks.isEmpty) {
-              return const Center(child: PrimaryCircularLoader());
+          builder: (context, state) {
+            final task = _resolveTask(state);
+            if (task == null) {
+              // A notification deep link always lands here on a cold cubit, with
+              // the list still in flight — so wait for the load to settle before
+              // claiming the task is missing, or "Task not found" flashes first.
+              // `isLoading` alone can't be relied on: the deep-link route loads
+              // silently, which leaves it false throughout.
+              if (state.isLoading || state.tasks.isEmpty) {
+                return const Center(child: PrimaryCircularLoader());
+              }
+              return const Center(
+                child: Text(
+                  'Task not found',
+                  style: TextStyle(color: AppPalette.textSecondary),
+                ),
+              );
             }
-            return const Center(
-              child: Text(
-                'Task not found',
-                style: TextStyle(color: AppPalette.textSecondary),
-              ),
+            // Read gate (PRD §5.2): a staff member may only open their own tasks,
+            // parents none at all — so a deep link or a stale push can't surface
+            // someone else's task even though the card came from the shared cubit.
+            if (!TaskAccess.canViewTask(
+              roles: roles,
+              task: task,
+              userCode: state.currentUserCode,
+              staffCode: state.currentStaffCode,
+              userName: state.currentUserName,
+            )) {
+              return _noAccess();
+            }
+            final canManage = TaskAccess.canManageTask(
+              roles: roles,
+              task: task,
+              userCode: state.currentUserCode,
+              staffCode: state.currentStaffCode,
+              userName: state.currentUserName,
             );
-          }
-          // Read gate (PRD §5.2): a staff member may only open their own tasks,
-          // parents none at all — so a deep link or a stale push can't surface
-          // someone else's task even though the card came from the shared cubit.
-          if (!TaskAccess.canViewTask(
-            roles: roles,
-            task: task,
-            userCode: state.currentUserCode,
-            staffCode: state.currentStaffCode,
-            userName: state.currentUserName,
-          )) {
-            return _noAccess();
-          }
-          final canManage = TaskAccess.canManageTask(
-            roles: roles,
-            task: task,
-            userCode: state.currentUserCode,
-            staffCode: state.currentStaffCode,
-            userName: state.currentUserName,
-          );
-          return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _headerRow(context, task, canManage),
-                if (task.isOverdue) ...[
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _headerRow(context, task, canManage),
+                  if (task.isOverdue) ...[
+                    const SizedBox(height: 10),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: TaskOverdueBadge(),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  _statusCard(context, task, canManage),
                   const SizedBox(height: 10),
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: TaskOverdueBadge(),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                _statusCard(context, task, canManage),
-                const SizedBox(height: 10),
-                TaskPriorityMeter(priority: task.priority),
-                const SizedBox(height: 12),
-                _assigneeCard(task),
-                if (task.description.trim().isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  _sectionCard(
-                    title: 'Description',
-                    child: Text(
-                      task.description,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.4,
-                        color: AppPalette.textPrimary,
+                  TaskPriorityMeter(priority: task.priority),
+                  const SizedBox(height: 12),
+                  _assigneeCard(task),
+                  if (task.description.trim().isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _sectionCard(
+                      title: 'Description',
+                      child: Text(
+                        task.description,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          height: 1.4,
+                          color: AppPalette.textPrimary,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-                const SizedBox(height: 10),
-                _scheduleCard(task, state.schoolTimeZone),
-                if (state.attachmentsFor(task).isNotEmpty) ...[
+                  ],
                   const SizedBox(height: 10),
-                  _attachmentCard(
-                    context,
-                    task,
-                    state.attachmentsFor(task),
-                    canManage: canManage,
-                  ),
-                ] else if (!state.attachmentsReadableForTask(task)) ...[
-                  // Say so rather than rendering nothing: "this task has no
-                  // attachments" and "we couldn't read them" look identical
-                  // otherwise, which is exactly how an attached file appears to
-                  // vanish.
+                  _scheduleCard(task, state.schoolTimeZone),
+                  if (state.attachmentsFor(task).isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _attachmentCard(
+                      context,
+                      task,
+                      state.attachmentsFor(task),
+                      canManage: canManage,
+                    ),
+                  ] else if (!state.attachmentsReadableForTask(task)) ...[
+                    // Say so rather than rendering nothing: "this task has no
+                    // attachments" and "we couldn't read them" look identical
+                    // otherwise, which is exactly how an attached file appears to
+                    // vanish.
+                    const SizedBox(height: 10),
+                    _attachmentsUnavailableCard(),
+                  ],
                   const SizedBox(height: 10),
-                  _attachmentsUnavailableCard(),
+                  _auditCard(task),
                 ],
-                const SizedBox(height: 10),
-                _auditCard(task),
-              ],
-            ),
-          );
-        },
+              ),
+            );
+          },
         ),
       ),
     );
@@ -259,7 +258,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.lock_outline, size: 44, color: AppPalette.iconMuted),
+            const Icon(
+              Icons.lock_outline,
+              size: 44,
+              color: AppPalette.iconMuted,
+            ),
             const SizedBox(height: 10),
             const Text(
               'You do not have access to this task.',
@@ -289,8 +292,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         if (canManage) ...[
           IconButton(
             tooltip: 'Edit task',
-            icon: const Icon(Icons.edit_outlined,
-                color: AppColors.themeColor, size: 22),
+            icon: const Icon(
+              Icons.edit_outlined,
+              color: AppColors.themeColor,
+              size: 22,
+            ),
             onPressed: () async {
               // A recurring task asks which occurrences to modify before the
               // form opens; [_series] is already loaded here, so no refetch.
@@ -315,8 +321,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
           IconButton(
             tooltip: 'Delete task',
-            icon: const Icon(Icons.delete_outline,
-                color: AppColors.errorColor, size: 22),
+            icon: const Icon(
+              Icons.delete_outline,
+              color: AppColors.errorColor,
+              size: 22,
+            ),
             onPressed: () => _confirmDelete(context, task),
           ),
         ],
@@ -334,10 +343,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       child: TaskStatusSelector(
         status: task.status,
         onChanged: canManage
-            ? (status) => context.read<TasksCubit>().changeStatus(
-                  task.code,
-                  status,
-                )
+            ? (status) =>
+                  context.read<TasksCubit>().changeStatus(task.code, status)
             : null,
       ),
     );
@@ -348,9 +355,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       title: 'Assignee',
       child: Row(
         children: [
-          TaskAssigneeAvatar(
+          ProfileAvatar(
             name: task.assigneeName,
-            code: task.assigneeCode,
+            staffCode: task.assigneeCode,
             size: 40,
           ),
           const SizedBox(width: 10),
@@ -573,9 +580,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   Widget _auditCard(Task task) {
     final createdBy = task.createdByLabel;
     final updatedBy = task.updatedByLabel;
-    final showUpdated = updatedBy.isNotEmpty &&
-        !(updatedBy == createdBy &&
-            !task.updatedAt.isAfter(task.createdAt));
+    final showUpdated =
+        updatedBy.isNotEmpty &&
+        !(updatedBy == createdBy && !task.updatedAt.isAfter(task.createdAt));
     return _sectionCard(
       title: 'Activity',
       child: Column(
