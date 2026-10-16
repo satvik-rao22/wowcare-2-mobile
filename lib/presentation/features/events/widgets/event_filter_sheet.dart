@@ -8,6 +8,7 @@ import 'package:wowcare/domain/features/events/entities/calendar_feed_item.dart'
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/presentation/features/events/view_model/events_cubit.dart';
+import 'package:wowcare/presentation/features/events/utils/event_access.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/core/theme/app_haptics.dart';
@@ -84,6 +85,10 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
   // ----------------------------------------------------------------- root
 
   Widget _root(BuildContext context, EventsState state, EventsCubit cubit) {
+    // Only kinds the persona may read (a parent has no Tasks), matching what
+    // the calendar itself renders.
+    final readableKinds =
+        EventAccess.readableCalendarKinds(context.watch<RoleCubit>());
     return Padding(
       key: const ValueKey(_FilterStage.root),
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
@@ -152,7 +157,7 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
                   runSpacing: 6,
                   children: [
                     for (final kind in CalendarFeedKind.values)
-                      if (kind != CalendarFeedKind.unknown)
+                      if (readableKinds.contains(kind))
                         _chip(
                           label: _kindLabel(kind),
                           color: _kindColor(kind),

@@ -159,6 +159,10 @@ class _EventsScreenState extends State<EventsScreen> {
   CalendarFormat _calendarFormat = CalendarFormat.week;
   final TextEditingController _searchController = TextEditingController();
 
+  /// Whether this screen has asked for the Tasks board yet (see
+  /// [_loadTaskBoard]).
+  bool _taskBoardRequested = false;
+
   @override
   void initState() {
     super.initState();
@@ -170,11 +174,22 @@ class _EventsScreenState extends State<EventsScreen> {
       if (_tabIndex == _holidaysTabIndex) _openHolidayDeepLink();
       final roles = context.read<RoleCubit>();
       if (!_canReadCalendar(roles)) return;
+      _loadTaskBoard(roles);
       context.read<EventsCubit>().loadCalendarFeed(
             _focusedDay,
             scope: _feedScope(roles),
           );
     });
+  }
+
+  /// Calendar feed task rows carry the assignee's code but not their name.
+  /// The Tasks board has it under the same assignment code, so load the board
+  /// once for personas that may see tasks, letting task cards show who they
+  /// are assigned to instead of "Unassigned".
+  void _loadTaskBoard(RoleCubit roles) {
+    if (_taskBoardRequested || !TaskAccess.canAccessModule(roles)) return;
+    _taskBoardRequested = true;
+    context.read<TasksCubit>().load(silent: true);
   }
 
   /// Applies the holiday notification deep link: select the notified year (when
@@ -229,6 +244,7 @@ class _EventsScreenState extends State<EventsScreen> {
           listener: (context, _) {
             final resolved = context.read<RoleCubit>();
             if (!_canReadCalendar(resolved)) return;
+            _loadTaskBoard(resolved);
             context.read<EventsCubit>().loadCalendarFeed(
                   _focusedDay,
                   scope: _feedScope(resolved),
@@ -700,14 +716,19 @@ class _EventsScreenState extends State<EventsScreen> {
         staffCode: state.currentStaffCode,
         userName: state.currentUserName,
       );
-      return TaskCard(
+      // The feed row has no assignee name; take it from the Tasks board
+      // (same assignment code) so the card doesn't read "Unassigned".
+      return BlocSelector<TasksCubit, TasksState, String>(
         key: ValueKey(task.code),
-        task: task,
-        schoolTimeZone: context.read<TasksCubit>().state.schoolTimeZone,
-        onTap: () => _openFeedItem(context, item),
-        onStatusTap: canManage ? () => _pickTaskStatus(context, task) : null,
-        // onPriorityTap:
-        //     canManage ? () => _pickTaskPriority(context, task) : null,
+        selector: (tasks) => tasks.taskByCode(item.code)?.assigneeName ?? '',
+        builder: (context, assigneeName) => TaskCard(
+          task: task.copyWith(assigneeName: assigneeName),
+          schoolTimeZone: context.read<TasksCubit>().state.schoolTimeZone,
+          onTap: () => _openFeedItem(context, item),
+          onStatusTap: canManage ? () => _pickTaskStatus(context, task) : null,
+          // onPriorityTap:
+          //     canManage ? () => _pickTaskPriority(context, task) : null,
+        ),
       );
     }
     if (item.isHoliday) return _feedHolidayBanner(item);
