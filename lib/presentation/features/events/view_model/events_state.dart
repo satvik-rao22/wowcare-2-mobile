@@ -142,7 +142,7 @@ class EventsState extends Equatable {
   }) {
     final matches = calendarItems
         .where(
-          (i) => i.occursOn(day) && _passesCalendarFilters(i, allowedKinds),
+          (i) => _feedItemOn(i, day) && _passesCalendarFilters(i, allowedKinds),
         )
         .toList()
       ..sort((a, b) {
@@ -156,8 +156,20 @@ class EventsState extends Equatable {
     DateTime day, {
     required Set<CalendarFeedKind> allowedKinds,
   }) => calendarItems.any(
-    (i) => i.occursOn(day) && _passesCalendarFilters(i, allowedKinds),
+    (i) => _feedItemOn(i, day) && _passesCalendarFilters(i, allowedKinds),
   );
+
+  /// The feed sends a holiday row with its start date only, so a multi-day
+  /// holiday takes its range from the matching [holidays] entry and marks
+  /// every day it covers.
+  bool _feedItemOn(CalendarFeedItem item, DateTime day) {
+    if (item.isHoliday) {
+      for (final holiday in holidays) {
+        if (holiday.code == item.code) return holiday.coversDay(day);
+      }
+    }
+    return item.occursOn(day);
+  }
 
   /// Calendar filters count for the filter badge (kind + event type +
   /// classrooms + date range).
