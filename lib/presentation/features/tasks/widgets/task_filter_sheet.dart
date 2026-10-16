@@ -36,6 +36,10 @@ Future<void> showTaskFilterSheet(BuildContext context) {
 /// Which second-stage list (if any) the sheet is currently showing.
 enum _FilterStage { root, assignee, createdBy }
 
+/// The "Created By" filter is hidden until the backend supports filtering by
+/// creator. Flip to true to bring the section back.
+const bool _showCreatedByFilter = false;
+
 class _TaskFilterSheet extends StatefulWidget {
   const _TaskFilterSheet();
 
@@ -186,7 +190,8 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
                   onTap: () => _open(_FilterStage.assignee),
                 ),
               ],
-              if (state.createdByOptions.isNotEmpty) ...[
+              if (_showCreatedByFilter &&
+                  state.createdByOptions.isNotEmpty) ...[
                 const SizedBox(height: 14),
                 _sectionLabel('Created By'),
                 _navRow(
