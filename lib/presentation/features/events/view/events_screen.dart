@@ -1277,7 +1277,7 @@ class _EventsScreenState extends State<EventsScreen> {
         padding: const EdgeInsets.only(bottom: 90),
         children: [
           _yearSelector(context, state),
-          const SizedBox(height: 4),
+          const SizedBox(height: 12),
           if (pending.isEmpty && active.isEmpty && rejected.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 60),
@@ -1291,7 +1291,7 @@ class _EventsScreenState extends State<EventsScreen> {
               title: 'Pending Federal Holidays',
               count: pending.length,
               icon: Icons.hourglass_bottom,
-              accentColor: AppPalette.statusWarning,
+              accentColor: AppPalette.statusWarningStrong,
               initiallyExpanded: true,
               child: Column(
                 children: [
@@ -1369,7 +1369,7 @@ class _EventsScreenState extends State<EventsScreen> {
               title: 'Rejected Federal Holidays',
               count: rejected.length,
               icon: Icons.cancel_outlined,
-              accentColor: AppPalette.textMuted,
+              accentColor: AppPalette.textSecondary,
               child: Column(
                 children: [
                   for (final holiday in rejected)

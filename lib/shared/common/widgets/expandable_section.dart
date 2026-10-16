@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// Reusable collapsible section with a tappable header and an animated body.
 ///
@@ -58,8 +59,10 @@ class _ExpandableSectionState extends State<ExpandableSection>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // A plain card face outlined in the accent, with the title in the
+        // same accent, so the header reads clearly on any background.
         Material(
-          color: accent.withValues(alpha: 0.06),
+          color: AppPalette.surfaceCard,
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
             borderRadius: BorderRadius.circular(12),
@@ -69,7 +72,7 @@ class _ExpandableSectionState extends State<ExpandableSection>
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: accent.withValues(alpha: 0.18)),
+                border: Border.all(color: accent, width: 1.2),
               ),
               child: Row(
                 children: [
@@ -84,38 +87,47 @@ class _ExpandableSectionState extends State<ExpandableSection>
                     ),
                     const SizedBox(width: 10),
                   ],
-                  Flexible(
-                    child: Text(
-                      widget.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                        color: accent,
-                      ),
+                  // Title and count take all the room left of the arrow, so
+                  // the title is never squeezed and every section's arrow
+                  // sits at the same right edge.
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            widget.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                              color: accent,
+                            ),
+                          ),
+                        ),
+                        if (widget.count != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: accent),
+                            ),
+                            child: Text(
+                              '${widget.count}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: accent,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                  if (widget.count != null) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '${widget.count}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: accent,
-                        ),
-                      ),
-                    ),
-                  ],
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   AnimatedRotation(
                     duration: const Duration(milliseconds: 180),
                     turns: _expanded ? 0.5 : 0,

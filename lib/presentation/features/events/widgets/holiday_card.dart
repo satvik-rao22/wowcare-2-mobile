@@ -34,7 +34,7 @@ class HolidayCard extends StatelessWidget {
     // Plain card with a neutral outline; observance state is conveyed by
     // the status chip rather than tinting the whole card.
     final badgeColor =
-        holiday.isObserved ? AppColors.themeColor : AppPalette.textMuted;
+        holiday.isObserved ? AppColors.themeColor : AppPalette.textSecondary;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: AppSurfaces.card(radius: 14),
@@ -198,15 +198,25 @@ class HolidayCard extends StatelessWidget {
   }
 
   Widget _statusChip(HolidayStatus status) {
-    final color = switch (status) {
-      HolidayStatus.pending => AppPalette.statusWarning,
-      HolidayStatus.considered => AppPalette.statusSuccess,
-      HolidayStatus.rejected => AppPalette.textMuted,
+    // Strong ink on the matching soft tint, so the label stays legible.
+    final (ink, tint) = switch (status) {
+      HolidayStatus.pending => (
+        AppPalette.statusWarningStrong,
+        AppPalette.statusWarningSoft,
+      ),
+      HolidayStatus.considered => (
+        AppPalette.statusSuccessStrong,
+        AppPalette.statusSuccessSoft,
+      ),
+      HolidayStatus.rejected => (
+        AppPalette.textSecondary,
+        AppPalette.textMuted.withValues(alpha: 0.12),
+      ),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
+        color: tint,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
@@ -214,7 +224,7 @@ class HolidayCard extends StatelessWidget {
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w600,
-          color: color,
+          color: ink,
         ),
       ),
     );
@@ -225,10 +235,10 @@ class HolidayCard extends StatelessWidget {
   ///   considered → Reject
   ///   rejected   → Re-Approve
   Widget _federalActions() {
-    Widget action(HolidayStatus target, String label, Color color) {
+    Widget action(HolidayStatus target, String label, Color color, Color tint) {
       return Expanded(
         child: Material(
-          color: color.withValues(alpha: 0.10),
+          color: tint,
           borderRadius: BorderRadius.circular(8),
           child: InkWell(
             onTap: () {
@@ -253,28 +263,30 @@ class HolidayCard extends StatelessWidget {
       );
     }
 
-    const approveColor = AppPalette.statusSuccess;
-    const rejectColor = AppPalette.statusError;
+    const approveColor = AppPalette.statusSuccessStrong;
+    const approveTint = AppPalette.statusSuccessSoft;
+    const rejectColor = AppPalette.statusErrorStrong;
+    const rejectTint = AppPalette.statusErrorSoft;
 
     switch (holiday.status) {
       case HolidayStatus.pending:
         return Row(
           children: [
-            action(HolidayStatus.considered, 'Approve', approveColor),
+            action(HolidayStatus.considered, 'Approve', approveColor, approveTint),
             const SizedBox(width: 6),
-            action(HolidayStatus.rejected, 'Reject', rejectColor),
+            action(HolidayStatus.rejected, 'Reject', rejectColor, rejectTint),
           ],
         );
       case HolidayStatus.considered:
         return Row(
           children: [
-            action(HolidayStatus.rejected, 'Reject', rejectColor),
+            action(HolidayStatus.rejected, 'Reject', rejectColor, rejectTint),
           ],
         );
       case HolidayStatus.rejected:
         return Row(
           children: [
-            action(HolidayStatus.considered, 'Re-Approve', approveColor),
+            action(HolidayStatus.considered, 'Re-Approve', approveColor, approveTint),
           ],
         );
       case null:
