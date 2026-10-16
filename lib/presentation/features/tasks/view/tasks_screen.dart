@@ -157,17 +157,23 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 
-  /// Scope toggle (PRD FR-TK-19) + Kanban/List view switcher. Staff personas
-  /// switch between "For me" (assigned to them) and "By Me" (created by them);
-  /// admins switch between "My Tasks" and "All Tasks".
+  /// Scope toggle (PRD FR-TK-19) + Kanban/List view switcher. Admins switch
+  /// between "My Tasks" and "All Tasks"; staff personas stay on "For me" while
+  /// "By Me" is hidden.
   Widget _controlsRow(BuildContext context, TasksState state, RoleCubit roles) {
     final cubit = context.read<TasksCubit>();
-    // Only admins may see the whole school (PRD §5.2); a staff persona's second
-    // tab is "By Me" (tasks they created), never everyone's tasks.
+    // Only admins may see the whole school (PRD §5.2), so only they get a
+    // second scope tab.
     final scopedToOwn = !TaskAccess.canViewAllTasks(roles);
-    final leftLabel = scopedToOwn ? 'For me' : 'My Tasks';
-    final rightLabel = scopedToOwn ? 'By Me' : 'All Tasks';
-    final rightScope = scopedToOwn ? TaskScope.byMe : TaskScope.all;
+    // "By Me" (created by me) is hidden until the backend supports that
+    // filter. That leaves a staff persona only "For me", their default scope,
+    // so there is nothing to toggle.
+    if (scopedToOwn) {
+      return Row(children: [const Spacer(), _viewSwitcher()]);
+    }
+    const leftLabel = 'My Tasks';
+    const rightLabel = 'All Tasks';
+    const rightScope = TaskScope.all;
     return Row(
       children: [
         Expanded(
