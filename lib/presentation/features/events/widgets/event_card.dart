@@ -33,9 +33,11 @@ class EventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final completed = event.isCompleted;
+    // Each card is one occurrence, so it is completed once its own date has
+    // passed, even while the rest of a recurring series is still upcoming.
     // Completed events read as a muted "archive" entry: grey accent, faded
     // content and a "Completed" chip so they stand out from upcoming items.
+    final completed = event.isPast;
     final color =
         completed ? AppPalette.textMuted : EventUiUtils.typeColor(event.type);
     final card = Material(
@@ -80,7 +82,7 @@ class EventCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 6),
                         if (completed)
-                          const _CompletedChip()
+                          const EventCompletedChip()
                         else
                           EventTypeChip(type: event.type, compact: true),
                       ],
@@ -190,8 +192,8 @@ class EventCard extends StatelessWidget {
 }
 
 /// Small grey "Completed" chip shown on past events in place of the type chip.
-class _CompletedChip extends StatelessWidget {
-  const _CompletedChip();
+class EventCompletedChip extends StatelessWidget {
+  const EventCompletedChip();
 
   @override
   Widget build(BuildContext context) {

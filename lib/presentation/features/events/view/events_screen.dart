@@ -1056,14 +1056,14 @@ class _EventsScreenState extends State<EventsScreen> {
             myRsvp: event.myRsvpStatus,
             showRsvpCounts: EventAccess.canSeeRsvpSummary(roles),
             onTap: () => _openDetail(context, event),
-            onRsvp: _canRespond(state, roles, event)
+            onRsvp: !event.isPast && _canRespond(state, roles, event)
                 ? (status) => _respond(context, event, status, roles.isParent)
                 : null,
           )
         : EventCard(
             event: event,
             myRsvp: event.myRsvpStatus,
-            onRsvp: _canRespond(state, roles, event)
+            onRsvp: !event.isPast && _canRespond(state, roles, event)
                 ? (status) => _respond(context, event, status, roles.isParent)
                 : null,
             showRsvpCounts: EventAccess.canSeeRsvpSummary(roles),

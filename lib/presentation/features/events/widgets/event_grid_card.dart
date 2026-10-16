@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/core/theme/app_elevation.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
+import 'package:wowcare/presentation/features/events/widgets/event_card.dart';
 import 'package:wowcare/presentation/features/events/widgets/event_rsvp_bar.dart';
 import 'package:wowcare/presentation/features/events/widgets/event_type_chip.dart';
 
@@ -30,7 +32,11 @@ class EventGridCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = EventUiUtils.typeColor(event.type);
+    // Same per-occurrence rule as [EventCard]: a past occurrence reads as
+    // completed (muted, flat, "Completed" chip).
+    final completed = event.isPast;
+    final color =
+        completed ? AppPalette.textMuted : EventUiUtils.typeColor(event.type);
     return Material(
       color: AppPalette.surfaceCard,
       borderRadius: BorderRadius.circular(12),
@@ -41,21 +47,28 @@ class EventGridCard extends StatelessWidget {
           padding: const EdgeInsets.all(10),
           decoration: AppSurfaces.card(radius: 12).copyWith(
             border: Border.all(color: color.withValues(alpha: 0.18)),
+            boxShadow: completed ? const <BoxShadow>[] : null,
+            insets: completed ? const <AppInset>[] : null,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              EventTypeChip(type: event.type, compact: true),
+              if (completed)
+                const EventCompletedChip()
+              else
+                EventTypeChip(type: event.type, compact: true),
               const SizedBox(height: 6),
               Expanded(
                 child: Text(
                   event.name,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: AppPalette.textPrimary,
+                    color: completed
+                        ? AppPalette.textSecondary
+                        : AppPalette.textPrimary,
                   ),
                 ),
               ),
