@@ -1613,7 +1613,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               ),
               const SizedBox(height: AppSizes.md),
               OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.of(context).maybePop(),
                 child: const Text(AppStrings.goBack),
               ),
             ],
