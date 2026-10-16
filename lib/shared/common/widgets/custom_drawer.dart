@@ -849,7 +849,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
         ),
       if (a.canViewEvents)
         _CustomExpansionTile(
-          title: 'Events',
+          title: 'Calendar',
           icon: MediaRes.eventsDrawerIcon,
           isCurrentRoute: _currentRoute == EventsScreen.routeName,
           suppressRouteHighlight: _expandedDrawerSection != null,
@@ -1051,7 +1051,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
         ),
       if (a.canViewEvents)
         _CustomExpansionTile(
-          title: 'Events',
+          title: 'Calendar',
           icon: MediaRes.eventsDrawerIcon,
           isCurrentRoute: _currentRoute == EventsScreen.routeName,
           suppressRouteHighlight: _expandedDrawerSection != null,

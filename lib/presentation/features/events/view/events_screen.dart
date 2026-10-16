@@ -360,7 +360,7 @@ class _EventsScreenState extends State<EventsScreen> {
       decoration: AppSurfaces.segmented(radius: 11),
       child: Row(
         children: [
-          tab(0, 'Events', Icons.event_outlined),
+          tab(0, 'Calendar', Icons.event_outlined),
           tab(1, 'Holidays', Icons.beach_access_outlined),
         ],
       ),
@@ -521,7 +521,7 @@ class _EventsScreenState extends State<EventsScreen> {
               controller: _searchController,
               onChanged: cubit.setSearchQuery,
               decoration: InputDecoration(
-                hintText: 'Search events…',
+                hintText: 'Search…',
                 hintStyle: TextStyle(fontSize: 13, color: AppPalette.textMuted),
                 prefixIcon: const Icon(
                   Icons.search,
