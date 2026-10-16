@@ -544,7 +544,7 @@ class EventDetailScreen extends StatelessWidget {
       return;
     }
     if (scope == OccurrenceScope.thisAndFuture) {
-      context.push(
+      await context.push(
         EventFormScreen.routeName,
         extra: <String, dynamic>{
           'eventCode': event.code,
@@ -552,6 +552,16 @@ class EventDetailScreen extends StatelessWidget {
           'splitFromDate': event.date.toIso8601String(),
         },
       );
+      if (!context.mounted) return;
+      // A saved split moves this date into a new series under a new
+      // occurrence code, so this screen would fall back to the old series.
+      // Return to the refreshed list instead.
+      final moved = context
+              .read<EventsCubit>()
+              .state
+              .eventByOccurrence(event.occurrenceCode) ==
+          null;
+      if (moved) context.pop();
       return;
     }
     // THIS_ONLY also uses the full edit screen (occurrence mode).

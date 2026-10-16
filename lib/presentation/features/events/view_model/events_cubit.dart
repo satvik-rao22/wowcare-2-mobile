@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
@@ -75,6 +76,10 @@ class EventsCubit extends Cubit<EventsState> {
   /// Unified-calendar-feed months already fetched, keyed by 'y-m|scope'
   /// (scope in the key so an admin's My/All toggle refetches).
   final Set<String> _loadedFeedMonths = {};
+
+  /// Month and scope of the latest calendar-feed request, so a holiday write
+  /// can refetch the month the calendar is showing.
+  (DateTime, String)? _lastFeedRequest;
 
   /// Grid/list infinite scroll: next page to fetch over a wide window
   /// (the API requires a date range; views paginate rather than filter).
@@ -635,6 +640,7 @@ class EventsCubit extends Cubit<EventsState> {
   /// toggle) or 'MY_ITEMS'; non-admins must always pass 'MY_ITEMS'. Rows
   /// merge into [EventsState.calendarItems] keyed by code.
   Future<void> loadCalendarFeed(DateTime month, {required String scope}) async {
+    _lastFeedRequest = (month, scope);
     final key = '${_monthKey(month)}|$scope';
     if (_loadedFeedMonths.contains(key)) return;
     _loadedFeedMonths.add(key);
@@ -668,6 +674,15 @@ class EventsCubit extends Cubit<EventsState> {
   void resetCalendarFeed() {
     _loadedFeedMonths.clear();
     emit(state.copyWith(calendarItems: const []));
+  }
+
+  /// Holiday writes change the feed's holiday rows (name, dates, status),
+  /// which the Events calendar renders, so refetch the month it shows.
+  void _refreshFeedAfterHolidayWrite() {
+    final last = _lastFeedRequest;
+    if (last == null) return;
+    resetCalendarFeed();
+    unawaited(loadCalendarFeed(last.$1, scope: last.$2));
   }
 
   /// Grid/list infinite scroll: fetch the next page (10 rows) and append.
@@ -775,6 +790,7 @@ class EventsCubit extends Cubit<EventsState> {
             );
       _upsertHoliday(saved);
       emit(state.copyWith(isSaving: false));
+      _refreshFeedAfterHolidayWrite();
       return (true, message);
     } catch (e) {
       emit(state.copyWith(isSaving: false));
@@ -807,6 +823,7 @@ class EventsCubit extends Cubit<EventsState> {
         action: action,
       );
       _upsertHoliday(saved);
+      _refreshFeedAfterHolidayWrite();
       return (true, message);
     } catch (e) {
       return (false, 'Could not update the holiday status. Please try again.');
@@ -821,6 +838,7 @@ class EventsCubit extends Cubit<EventsState> {
           holidays: state.holidays.where((h) => h.code != code).toList(),
         ),
       );
+      _refreshFeedAfterHolidayWrite();
       return (true, message);
     } catch (e) {
       return (false, 'Could not delete the holiday. Please try again.');
