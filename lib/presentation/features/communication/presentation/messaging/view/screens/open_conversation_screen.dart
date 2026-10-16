@@ -9,7 +9,9 @@ import 'package:wowcare/domain/features/communication/entities/conversation_enti
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/src/app_router.dart';
 
@@ -53,9 +55,15 @@ class _OpenConversationScreenState extends State<OpenConversationScreen> {
   /// [ConversationEntityDisplay.displayAvatar].
   String _currentUserCode = '';
 
+  /// Type of the thread being shown — picks the inbox sub-tab back returns
+  /// to. The fetched entity is authoritative; until it loads (or if it fails)
+  /// the push payload's optional `conversationType` stands in.
+  ConversationType? _conversationType;
+
   @override
   void initState() {
     super.initState();
+    _conversationType = _parseType(widget.conversationType);
     _future = _load();
   }
 
@@ -65,15 +73,35 @@ class _OpenConversationScreenState extends State<OpenConversationScreen> {
     final userCode = await resolveCommunicationCubit().readCurrentUserCode();
     _currentUserCode = (userCode ?? '').trim();
     final result = await resolveConversationByCode(code);
-    return result.fold((_) => null, (c) => c);
+    final conversation = result.fold((_) => null, (c) => c);
+    if (conversation != null) _conversationType = conversation.type;
+    return conversation;
   }
 
+  static ConversationType? _parseType(String? raw) {
+    final value = raw?.trim() ?? '';
+    if (value.isEmpty) return null;
+    try {
+      return ConversationType.fromApiString(value);
+    } on ArgumentError {
+      return null;
+    }
+  }
+
+  /// A notification tap reaches this screen via `go`, which replaces the
+  /// stack — so there is usually nothing to pop, and back lands on the inbox
+  /// sub-tab that lists this conversation instead.
   void _goBackOrHome() {
     if (context.canPop()) {
       context.pop();
-    } else {
-      context.go(AppRoutes.messaging);
+      return;
     }
+    appRouterGo(
+      MessagingScreen.inboxRouteFor(
+        _conversationType,
+        isParent: context.read<RoleCubit>().isParent,
+      ),
+    );
   }
 
   @override
