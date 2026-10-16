@@ -190,7 +190,11 @@ class _EventFormScreenState extends State<EventFormScreen> {
     _type = event.type;
     _nameController.text = event.name;
     _descriptionController.text = event.description;
-    _date = _dateOnly(event.date);
+    // A split continues the series from the occurrence it was opened on. The
+    // series start would make the new series repeat the earlier dates too.
+    _date = _isSplitting && widget.splitFromDate != null
+        ? _dateOnly(widget.splitFromDate!)
+        : _dateOnly(event.date);
     _allDay = event.allDay;
     _startTime = _parseTime(event.startTime) ?? _startTime;
     _endTime = _parseTime(event.endTime) ?? _endTime;
