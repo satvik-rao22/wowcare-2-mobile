@@ -431,21 +431,22 @@ class _EventFormScreenState extends State<EventFormScreen> {
       runSpacing: 6,
       children: [
         for (final type in types)
+          // The type colours are too light for text on their own tint or
+          // under white, so labels use ink and the colour stays on the fill,
+          // border and (unselected) icon.
           ChoiceChip(
             label: Text(type.label),
             avatar: Icon(
               EventUiUtils.typeIcon(type),
               size: 15,
               color: _type == type
-                  ? AppPalette.textOnDark
+                  ? AppPalette.textPrimary
                   : EventUiUtils.typeColor(type),
             ),
-            labelStyle: TextStyle(
+            labelStyle: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: _type == type
-                  ? AppPalette.textOnDark
-                  : EventUiUtils.typeColor(type),
+              color: AppPalette.textPrimary,
             ),
             selected: _type == type,
             selectedColor: EventUiUtils.typeColor(type),
@@ -454,7 +455,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
             ).withValues(alpha: 0.08),
             showCheckmark: false,
             side: BorderSide(
-              color: EventUiUtils.typeColor(type).withValues(alpha: 0.3),
+              color: EventUiUtils.typeColor(type).withValues(alpha: 0.5),
             ),
             onSelected: _isEditing ? null : (_) => _onTypeChanged(type),
           ),

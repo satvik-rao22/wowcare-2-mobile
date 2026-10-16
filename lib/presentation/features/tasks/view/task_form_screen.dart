@@ -681,8 +681,10 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
+                    // The priority colour marks the border and tint; text on
+                    // that tint needs ink to stay readable.
                     color: _priority == priority
-                        ? TaskUiUtils.priorityColor(priority)
+                        ? AppPalette.textPrimary
                         : AppPalette.textSecondary,
                   ),
                 ),
@@ -731,12 +733,10 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   const SizedBox(width: 10),
                   Text(
                     status.label,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w600,
-                      color: _status == status
-                          ? TaskUiUtils.statusColor(status)
-                          : AppPalette.textPrimary,
+                      color: AppPalette.textPrimary,
                     ),
                   ),
                 ],
