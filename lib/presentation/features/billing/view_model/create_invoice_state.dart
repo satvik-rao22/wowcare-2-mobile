@@ -64,6 +64,25 @@ class CreateInvoiceState extends Equatable {
     return total;
   }
 
+  /// [totalAmount] rounded to the cent — the figure to show and to compare.
+  double get displayTotal => InvoiceTotalRules.roundToCents(totalAmount);
+
+  /// Whether a discount or subsidy on the invoice actually takes something off.
+  bool get hasReduction => InvoiceTotalRules.hasAppliedReduction(
+        items.where((i) => InvoiceItemTypes.isDeduction(i.type)).map(
+              (i) =>
+                  double.tryParse(i.amountController.text.isEmpty
+                      ? i.amount
+                      : i.amountController.text) ??
+                  0,
+            ),
+      );
+
+  /// Why this total cannot be invoiced, or null when it can (zero is fine when
+  /// a discount or subsidy brought it there).
+  String? get totalProblem =>
+      InvoiceTotalRules.totalProblem(totalAmount, hasReduction: hasReduction);
+
   CreateInvoiceState copyWith({
     List<InvoiceItemFormData>? items,
     DateTime? Function()? invoiceDate,

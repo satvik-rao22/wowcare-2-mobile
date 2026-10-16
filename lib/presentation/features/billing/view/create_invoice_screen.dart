@@ -4,7 +4,9 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/utils/billing_school_time.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/domain/features/billing/policies/invoice_total_rules.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/create_invoice_cubit.dart';
 import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
@@ -53,7 +55,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   DateTime? get _serviceDate => _cubit.state.serviceDate;
   DateTime? get _serviceDateEnd => _cubit.state.serviceDateEnd;
   bool get _isFormLocked => _cubit.state.isFormLocked;
-  double get _totalAmount => _cubit.state.totalAmount;
+  // Rounded to the cent: the raw sum of a fully subsidised invoice can be
+  // -1.78e-15, which would print as "$-0.00".
+  double get _totalAmount => _cubit.state.displayTotal;
 
   @override
   void initState() {
@@ -65,9 +69,19 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         widget.initialInvoiceData?.invoiceCode?.toString().trim() ?? '';
     if (editCode.isNotEmpty) {
       // Edit: fetch the real invoice (by-code) and hydrate the form.
-      _cubit.loadInvoiceForEdit(editCode);
+      _cubit.loadInvoiceForEdit(editCode).then((loaded) {
+        // Without the invoice there are no real lines to edit; editing on
+        // would save the empty default form over it.
+        if (loaded || !mounted) return;
+        _showValidationMessage(BillingStrings.failedToLoadInvoice);
+        Navigator.of(context).maybePop();
+      });
     } else {
       _cubit.initialize(widget.initialInvoiceData);
+      // New invoice: the invoice date starts at today (school calendar).
+      if (_cubit.state.invoiceDate == null) {
+        _cubit.setInvoiceDate(billingSchoolToday());
+      }
     }
     final note = widget.initialInvoiceData?.internalNote;
     if (note is String) _internalNoteController.text = note;
@@ -103,6 +117,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     int index, {
     String? type,
     String? description,
+    String? customName,
     String? amount,
     String? value,
     String? valueType,
@@ -111,6 +126,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       index,
       type: type,
       description: description,
+      customName: customName,
       amount: amount,
       value: value,
       valueType: valueType,
@@ -135,6 +151,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       _showValidationMessage(
         BillingStrings.pleaseEnterAtLeastOneInvoiceItemAmount,
       );
+      return;
+    }
+    // Positive, or exactly zero when a discount/subsidy brought it there.
+    final totalProblem = _cubit.state.totalProblem;
+    if (totalProblem != null) {
+      _showValidationMessage(totalProblem);
       return;
     }
 
@@ -224,6 +246,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     students: students,
                     onRemove: _isFormLocked ? null : _removeStudent,
                   ),
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                _buildDateField(
+                  responsive: responsive,
+                  label: BillingStrings.invoiceDate,
+                  value: _invoiceDate,
+                  onSelected: _cubit.setInvoiceDate,
                 ),
                 SizedBox(height: responsive.verticalSpacing),
                 _buildDateField(
@@ -412,6 +441,19 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             ],
           ),
         ),
+        // Same rule that gates Preview: zero is fine when a discount or
+        // subsidy brought it there.
+        if (_cubit.state.totalProblem != null &&
+            _invoiceItems.any(
+              (it) => it.amountController.text.trim().isNotEmpty,
+            ))
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              _cubit.state.totalProblem!,
+              style: AppTextStyles.label.copyWith(color: AppColors.errorColor),
+            ),
+          ),
       ],
     );
   }
@@ -428,12 +470,22 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     final typeOptions = index == 0
         ? InvoiceItemTypes.firstItemOptions
         : InvoiceItemTypes.additionalItemOptions;
-    final descriptionOptions = _descriptionOptionsForType(item.type);
+    final isDeduction = InvoiceItemTypes.isDeduction(item.type);
+    // A discount/subsidy can always be an ad-hoc "Other" entry, listed on top
+    // of the configured ones (same as the web form).
+    final descriptionOptions = isDeduction
+        ? <String>[
+            InvoiceItemTypes.otherOption,
+            ..._descriptionOptionsForType(item.type),
+          ]
+        : _descriptionOptionsForType(item.type);
     final String? safeTypeValue = _safeDropdownValue(item.type, typeOptions);
-    final String? safeDescriptionValue = _safeDropdownValue(
-      item.description.isEmpty ? null : item.description,
-      descriptionOptions,
-    );
+    final String? safeDescriptionValue = item.isOther
+        ? InvoiceItemTypes.otherOption
+        : _safeDropdownValue(
+            item.description.isEmpty ? null : item.description,
+            descriptionOptions,
+          );
 
     return Container(
       decoration: BoxDecoration(
@@ -528,6 +580,19 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               onChanged: (value) =>
                   _updateInvoiceItem(index, description: value),
             ),
+          // "Other" discount/subsidy: the user names it.
+          if (isDeduction && item.isOther) ...[
+            const SizedBox(height: 12),
+            _ItemTextField(
+              responsive: responsive,
+              label: '${item.type} name',
+              controller: item.descriptionController,
+              enabled: !_isFormLocked,
+              hintText: 'Enter ${item.type.toLowerCase()} name',
+              onChanged: (value) =>
+                  _updateInvoiceItem(index, customName: value),
+            ),
+          ],
           // Discount / subsidy: enter a value and choose % or flat — the amount
           // is computed (% of the fee total, or the flat value).
           if (InvoiceItemTypes.isDeduction(item.type)) ...[
@@ -574,15 +639,20 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             ),
           ],
           const SizedBox(height: 12),
-          // Catalog types auto-fill the amount from the chosen entry. It's
-          // read-only (not editable) but kept white — not greyed out.
+          // A catalog fee auto-fills the amount as a starting point, not a
+          // decision: a different number of days, a mid-term rate change or a
+          // negotiated fee all need the line changed, so a charge line stays
+          // editable. Only a discount/subsidy amount is read-only — it is
+          // computed from its value and the fee base.
           _ItemTextField(
             responsive: responsive,
             label: BillingStrings.amount,
             controller: item.amountController,
             enabled: !_isFormLocked,
-            readOnly: isCatalogType,
-            hintText: isCatalogType ? BillingStrings.autoFilled : '\$0',
+            readOnly: InvoiceItemTypes.isDeduction(item.type),
+            hintText: InvoiceItemTypes.isDeduction(item.type)
+                ? BillingStrings.autoFilled
+                : '\$0',
             keyboardType: TextInputType.number,
             onChanged: (value) => _updateInvoiceItem(index, amount: value),
           ),
@@ -678,6 +748,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       _showValidationMessage(BillingStrings.pleaseSelectTheInvoiceDueDate);
       return false;
     }
+    final invoiceDate = _invoiceDate;
+    if (invoiceDate != null &&
+        DateUtils.dateOnly(_dueDate!).isBefore(DateUtils.dateOnly(invoiceDate))) {
+      _showValidationMessage(
+          'The due date cannot be before the invoice date.');
+      return false;
+    }
 
     for (var index = 0; index < _invoiceItems.length; index++) {
       final item = _invoiceItems[index];
@@ -699,6 +776,15 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       if (amountText.trim().isEmpty) {
         _showValidationMessage(
           'Please enter the amount for invoice item ${index + 1}.',
+        );
+        return false;
+      }
+      // A typed 0 in a charge line is still refused; zero comes only from a
+      // discount or subsidy taking the total there.
+      if (!InvoiceItemTypes.isDeduction(item.type) &&
+          InvoiceTotalRules.toCents(double.tryParse(amountText) ?? 0) <= 0) {
+        _showValidationMessage(
+          'The amount for invoice item ${index + 1} must be greater than zero.',
         );
         return false;
       }

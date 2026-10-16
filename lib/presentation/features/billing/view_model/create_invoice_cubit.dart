@@ -9,6 +9,7 @@ import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/billing/entities/discount_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_catalog_entities.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_entity.dart';
+import 'package:wowcare/domain/features/billing/policies/invoice_total_rules.dart';
 import 'package:wowcare/domain/features/billing/usecases/create_invoice_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_invoice_by_code_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/issue_invoice_usecase.dart';
@@ -51,6 +52,10 @@ class InvoiceItemTypes {
 
   /// Types that subtract from the invoice total.
   static bool isDeduction(String type) => type == discount || type == subsidy;
+
+  /// Description-dropdown entry on a discount/subsidy that lets the user type
+  /// an ad-hoc name and value instead of picking a configured one.
+  static const String otherOption = 'Other';
 
   /// Maps a display type to the API `itemType` enum value.
   static String apiCode(String type) {
@@ -179,14 +184,18 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
 
   /// Fetches the full invoice (`GET /invoices/by-code/{code}`) and hydrates the
   /// form with its real line items + dates, so editing PATCHes the true state
-  /// rather than a summarized row. Falls back to leaving the form as-is on error.
-  Future<void> loadInvoiceForEdit(String code) async {
+  /// rather than a summarized row.
+  ///
+  /// Returns false when the invoice could not be loaded. The form then holds
+  /// only the default empty line, and saving it would overwrite the invoice, so
+  /// the caller must not let the user edit on.
+  Future<bool> loadInvoiceForEdit(String code) async {
     _editingInvoiceCode = code.trim();
     loadCatalog();
-    if (_editingInvoiceCode!.isEmpty) return;
+    if (_editingInvoiceCode!.isEmpty) return false;
     try {
       final invoice = await _getInvoiceByCode(_editingInvoiceCode!);
-      if (isClosed) return;
+      if (isClosed) return true;
       for (final item in state.items) {
         item.dispose();
       }
@@ -203,6 +212,10 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
               );
               fd.sourceCode = it.sourceCode;
               fd.valueType = it.valueType;
+              // A discount/subsidy with no configured entry behind it was an
+              // ad-hoc "Other" line.
+              fd.isOther = InvoiceItemTypes.isDeduction(fd.type) &&
+                  (it.sourceCode ?? '').isEmpty;
               if (it.valueInput != null) {
                 fd.valueController.text = it.valueInput!.toStringAsFixed(2);
               }
@@ -216,8 +229,9 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
         serviceDateEnd: () => invoice.periodEnd ?? state.serviceDateEnd,
         revision: state.revision + 1,
       ));
+      return true;
     } catch (_) {
-      // Keep the (default) form; the user can still edit manually.
+      return false;
     }
   }
 
@@ -360,12 +374,22 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     int index, {
     String? type,
     String? description,
+    String? customName,
     String? amount,
     String? value,
     String? valueType,
   }) {
     if (index < 0 || index >= state.items.length) return;
     final item = state.items[index];
+
+    // The ad-hoc name typed on an "Other" discount/subsidy: kept as typed and
+    // never matched against the catalog.
+    if (customName != null) {
+      item.description = customName;
+      if (item.descriptionController.text != customName) {
+        item.descriptionController.text = customName;
+      }
+    }
 
     if (type != null && type != item.type) {
       item.type = type;
@@ -376,15 +400,31 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
       item.amount = '';
       item.amountController.text = '';
       item.sourceCode = null;
-      item.valueType = null;
+      item.isOther = false;
+      // A discount/subsidy starts as a percentage, like the web form.
+      item.valueType =
+          InvoiceItemTypes.isDeduction(item.type) ? 'PERCENT' : null;
       item.valueController.clear();
     }
 
-    if (description != null) {
+    if (description != null &&
+        InvoiceItemTypes.isDeduction(item.type) &&
+        description == InvoiceItemTypes.otherOption &&
+        !item.isOther) {
+      // "Other": an ad-hoc discount/subsidy. The user types the name and the
+      // value; no configured entry (source code) is attached.
+      item.isOther = true;
+      item.description = '';
+      item.descriptionController.text = '';
+      item.sourceCode = null;
+      item.valueType ??= 'PERCENT';
+    } else if (description != null) {
       item.description = description;
       if (item.descriptionController.text != description) {
         item.descriptionController.text = description;
       }
+      // Choosing a configured entry leaves "Other" mode.
+      item.isOther = false;
       // Catalog-backed types auto-fill source code (+ amount or discount value)
       // from the chosen entry.
       if (InvoiceItemTypes.catalogTypes.contains(item.type)) {
@@ -478,9 +518,9 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     required String mode,
     String? notes,
   }) async {
-    // Invoice date is no longer collected in the UI — default to today. Use the
-    // SCHOOL calendar: near midnight a device in another zone would otherwise
-    // issue the invoice dated the wrong day.
+    // The form collects the invoice date (starts at today); fall back to today
+    // when absent. Use the SCHOOL calendar: near midnight a device in another
+    // zone would otherwise issue the invoice dated the wrong day.
     final issueDate = state.invoiceDate ?? billingSchoolToday();
     final dueDate = state.dueDate;
     if (dueDate == null) {
@@ -647,6 +687,9 @@ class InvoiceItemFormData {
   final TextEditingController valueController = TextEditingController();
 
   final bool isPrimary;
+
+  /// Discount/subsidy: the user chose "Other" and types their own name + value.
+  bool isOther = false;
 
   final TextEditingController descriptionController;
   final TextEditingController amountController;

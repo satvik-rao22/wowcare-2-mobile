@@ -150,6 +150,7 @@ class BillingStrings {
   static const String failed = 'Failed';
   static const String failedToDeactivate = 'Failed to deactivate.';
   static const String failedToDelete = 'Failed to delete.';
+  static const String failedToLoadInvoice = 'Failed to load invoice.';
   static const String failedToLoadDiscounts = 'Failed to load discounts.';
   static const String failedToLoadLedgers = 'Failed to load ledgers.';
   static const String failedToReactivate = 'Failed to reactivate.';

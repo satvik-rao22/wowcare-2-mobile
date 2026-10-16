@@ -221,7 +221,9 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
               // when that's already hidden (e.g. this popup is shown FROM the
               // Billing Profile screen itself), there's nothing left for it to
               // open, so omit the button rather than open an empty popup.
-              if (showBillingProfile)
+              // A settled zero invoice (discount/subsidy took it to zero,
+              // nothing paid) also keeps Edit + Cancel under More.
+              if (showBillingProfile || (transaction?.isChangeableZero ?? false))
                 _PopupActionConfig(
                   iconPath: MediaRes.moreIcon,
                   label: BillingStrings.more,
@@ -451,6 +453,17 @@ class BillingMoreOptionsPopup extends StatelessWidget {
           ];
           break;
         case BillingInvoiceMenuVariant.paid:
+          // A paid invoice is locked, except one a discount or subsidy took to
+          // zero with nothing paid: no payment to protect, so it keeps Edit
+          // and Cancel.
+          final bool changeableZero = transaction?.isChangeableZero ?? false;
+          actions = <_PopupActionConfig>[
+            if (changeableZero) editAction,
+            if (showBillingProfile) billingProfileAction,
+            if (changeableZero) cancelAction,
+            // messageAction,
+          ];
+          break;
         case BillingInvoiceMenuVariant.cancelled:
           actions = <_PopupActionConfig>[
             if (showBillingProfile) billingProfileAction,
