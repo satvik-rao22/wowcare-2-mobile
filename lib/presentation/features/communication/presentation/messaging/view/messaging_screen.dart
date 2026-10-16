@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/communication_providers.dart';
 import 'package:wowcare/core/utils/school_switch_events.dart';
 import 'package:wowcare/core/utils/tab_visibility_events.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_tab.dart';
 import 'package:wowcare/presentation/features/newsletter/view/newsletter_tab.dart';
@@ -40,6 +41,25 @@ class MessagingScreen extends StatefulWidget {
   /// staff-message notifications) uses this explicit route.
   static const String staffMessagingRoute = '$routeName?msgTab=staff';
 
+  /// The inbox location that lists a conversation of [type] — where back from
+  /// a thread opened outside the inbox (a chat push-notification tap) lands.
+  /// Guardians have no Staff/Parent sub-tabs, and an unknown type keeps the
+  /// plain messaging home.
+  static String inboxRouteFor(
+    ConversationType? type, {
+    required bool isParent,
+  }) {
+    if (isParent || type == null) return routeName;
+    switch (type) {
+      case ConversationType.staffDirect:
+      case ConversationType.classroomChat:
+        return staffMessagingRoute;
+      case ConversationType.roomChat:
+      case ConversationType.adminChat:
+        return parentMessagingRoute;
+    }
+  }
+
   @override
   State<MessagingScreen> createState() => _MessagingScreenState();
 }
@@ -59,6 +79,18 @@ class _MessagingScreenState extends State<MessagingScreen>
     // Same subtree-recreate trick as onSchoolSwitched() below, triggered by
     // switching back to this tab instead of a school/persona change.
     setState(() => _contextReloadEpoch++);
+    // A `msgTab` link targets a Messaging sub-tab, so it must also land on the
+    // Messaging top-level tab — even when the user last left this kept-alive
+    // screen on Newsletter. didChangeDependencies can't catch that: the `tab`
+    // query hasn't changed, and its guard doesn't see manual tab switches.
+    // Post-frame, so GoRouterState already reflects the new location.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final msgTab = GoRouterState.of(context).uri.queryParameters['msgTab'];
+      if (msgTab == null || msgTab.trim().isEmpty) return;
+      _lastAppliedInitialIndex = 0;
+      if (_tabController.index != 0) _tabController.animateTo(0);
+    });
   }
 
   late TabController _tabController;

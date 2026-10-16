@@ -1408,7 +1408,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             GestureDetector(
-              onTap: () => Navigator.of(context).pop(),
+              onTap: () => Navigator.of(context).maybePop(),
               child: Container(
                 padding: const EdgeInsets.all(AppSizes.xxs),
                 decoration: BoxDecoration(
@@ -1614,7 +1614,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
             ),
             const SizedBox(height: AppSizes.lg),
             GestureDetector(
-              onTap: () => Navigator.of(context).pop(),
+              onTap: () => Navigator.of(context).maybePop(),
               child: SkeuKeyBox(
                 variant: KeyVariant.primary,
                 radius: AppRadius.pill,
